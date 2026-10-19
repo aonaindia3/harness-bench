@@ -35,9 +35,33 @@ webgames() {
     echo "✓ webgames built -> vendor/webgames/webgames/dist"
 }
 
+OSWORLD_COMMIT=a0b463f88cadaf2729a086f049d217d3e9a64b05
+UV="${UV:-$(command -v uv || echo "$HOME/.hermes/tools/uv-0.12.3-linux-x64/uv")}"
+
+osworld() {  # ~15 GB: Python env, the osworld-docker image and the Ubuntu VM disk
+    fetch OSWorld https://github.com/xlang-ai/OSWorld.git "$OSWORLD_COMMIT"
+    (
+        cd vendor/OSWorld
+        [ -x .venv/bin/python ] || "$UV" venv --quiet --python 3.10 .venv
+        # CPU-only torch first: the evaluators don't need CUDA and it saves ~2.5 GB.
+        "$UV" pip install --quiet --python .venv/bin/python \
+            --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1"
+        "$UV" pip install --quiet --python .venv/bin/python -r requirements.txt "mcp>=1.2,<2"
+        docker pull --quiet happysixd/osworld-docker
+        .venv/bin/python -c "
+import os
+from desktop_env.providers.docker.manager import VMS_DIR, _download_vm
+if not os.path.exists(os.path.join(VMS_DIR, 'Ubuntu.qcow2')):
+    _download_vm(VMS_DIR)
+print('VM image:', os.path.abspath(os.path.join(VMS_DIR, 'Ubuntu.qcow2')))"
+    )
+    echo "✓ OSWorld ready (vendor/OSWorld)"
+}
+
 case "${1:-all}" in
     all) miniwob; webgames ;;
     miniwob) miniwob ;;
     webgames) webgames ;;
-    *) echo "usage: $0 [all|miniwob|webgames]" >&2; exit 2 ;;
+    osworld) osworld ;;
+    *) echo "usage: $0 [all|miniwob|webgames|osworld]" >&2; exit 2 ;;
 esac

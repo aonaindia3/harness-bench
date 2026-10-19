@@ -7,4 +7,8 @@ if [ "${1:-}" = "report" ]; then
     shift
     exec python3 -m bench.report "$@"
 fi
+if [ "${1:-}" = "osworld" ]; then
+    shift
+    exec vendor/OSWorld/.venv/bin/python bench/osworld_run.py "$@"
+fi
 exec python3 -m bench.run "$@"
