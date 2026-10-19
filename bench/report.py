@@ -20,6 +20,11 @@ def _fmt(x, nd=0):
     return "-" if x is None else f"{x:,.{nd}f}"
 
 
+def passed(r: dict) -> bool:
+    """A pass only counts if the agent didn't reach into page internals to get it."""
+    return bool(r["success"]) and not r.get("suspect")
+
+
 def summarize(rows: list[dict]) -> str:
     groups = defaultdict(list)
     for r in rows:
@@ -28,7 +33,7 @@ def summarize(rows: list[dict]) -> str:
              "| mean tool calls | mean tokens | timeouts | suspect |",
              "|---|---|---|---|---|---|---|---|---|---|---|"]
     for (h, m, s), rs in sorted(groups.items()):
-        ok = sum(r["success"] for r in rs)
+        ok = sum(passed(r) for r in rs)
         times = [r["wall_s"] for r in rs]
         lines.append(
             f"| {h} | {m} | {s} | {len(rs)} | {ok}/{len(rs)} ({100 * ok / len(rs):.0f}%) "
@@ -47,7 +52,7 @@ def per_task(rows: list[dict]) -> str:
             note = "timed out"
         if r.get("suspect"):
             note = (note + "; " if note else "") + "suspect: touched page internals"
-        lines.append(f"| {r['suite']} | {r['task']} | {'PASS' if r['success'] else 'fail'} | {r.get('score', 0):.2f} "
+        lines.append(f"| {r['suite']} | {r['task']} | {'PASS' if passed(r) else 'fail'} | {r.get('score', 0):.2f} "
                      f"| {r['wall_s']} | {r['tool_calls']} | {_fmt(r.get('tokens_total'))} | {note} |")
     return "\n".join(lines)
 

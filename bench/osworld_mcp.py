@@ -48,7 +48,10 @@ def screenshot() -> Image:
     png = _controller().get_screenshot()
     if not png:
         raise RuntimeError("screenshot failed")
-    _log({"tool": "screenshot"})
+    attempt_dir = Path(_state()["action_log"]).parent
+    shot = attempt_dir / f"shot_{len(list(attempt_dir.glob('shot_*.png'))):03d}.png"
+    shot.write_bytes(png)
+    _log({"tool": "screenshot", "file": shot.name})
     return Image(data=png, format="png")
 
 

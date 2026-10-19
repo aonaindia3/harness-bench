@@ -43,10 +43,12 @@ osworld() {  # ~15 GB: Python env, the osworld-docker image and the Ubuntu VM di
     (
         cd vendor/OSWorld
         [ -x .venv/bin/python ] || "$UV" venv --quiet --python 3.10 .venv
-        # CPU-only torch first: the evaluators don't need CUDA and it saves ~2.5 GB.
-        "$UV" pip install --quiet --python .venv/bin/python \
-            --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1"
+        # CPU-only torch/torchvision: the evaluators don't need CUDA and it saves ~2.5 GB.
+        # Installed again after requirements.txt, which otherwise pulls a mismatched torchvision.
+        cpu_torch=(--index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1")
+        "$UV" pip install --quiet --python .venv/bin/python "${cpu_torch[@]}"
         "$UV" pip install --quiet --python .venv/bin/python -r requirements.txt "mcp>=1.2,<2"
+        "$UV" pip install --quiet --python .venv/bin/python --reinstall-package torchvision "${cpu_torch[@]}"
         docker pull --quiet happysixd/osworld-docker
         .venv/bin/python -c "
 import os

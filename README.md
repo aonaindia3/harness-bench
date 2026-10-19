@@ -35,6 +35,7 @@ Suites: `miniwob-all`, `miniwob-quick`, `webgames-all`, `webgames-base`, `webgam
 success, score, wall time, tool calls (by tool), tokens (input/output/total/cache read),
 timeout, the final answer, and a `suspect` flag when the agent's tool inputs touch page
 internals (MiniWoB's `core.*`/`WOB_*`, the WebGames JS bundle) instead of using the UI.
+The report counts a suspect pass as a failure.
 Full transcripts are in `runs/<run>/attempts/<task>/transcript.jsonl`.
 
 ## Protocol notes
@@ -44,6 +45,9 @@ Full transcripts are in `runs/<run>/attempts/<task>/transcript.jsonl`.
   auto-starts the episode and reports the first episode's reward to the local server.
   The agent reads the instruction from the page (BrowserGym puts the same text in the goal).
 - **WebGames**: prompt is the exact template from `vendor/webgames/evals`, with the local URL.
+  The JS bundle holds every password, so the local server only serves `.js` files to real
+  `<script>` loads (`Sec-Fetch-Dest: script`); `fetch()` from the console or opening the file
+  as a page gets a 403. (Added after Hermes read passwords out of the bundle in 6/25 attempts.)
 - **OSWorld**: `bench/osworld_mcp.py` gives the harness four tools (screenshot,
   accessibility_tree, execute pyautogui code, done DONE/FAIL); `bench/osworld_run.py`
   resets the task, runs the harness, then calls OSWorld's evaluator. A `done("FAIL")` is

@@ -72,6 +72,11 @@ class MiniWobHandler(_Quiet):
 class SpaHandler(_Quiet):
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        # The bundle contains every password. Serve it to <script> loads only, not to fetch()
+        # from the console or to the agent opening it as a page (Chromium sends Sec-Fetch-Dest).
+        if path.endswith((".js", ".mjs", ".map")) and self.headers.get("Sec-Fetch-Dest", "script") != "script":
+            self.send_error(403, "source not available to the agent")
+            return None
         if not (Path(self.directory) / path.lstrip("/")).is_file():
             self.path = "/index.html"
         return super().do_GET()
