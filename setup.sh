@@ -26,7 +26,8 @@ webgames() {
     fetch webgames https://github.com/convergence-ai/webgames.git "$WEBGAMES_COMMIT"
     (
         cd vendor/webgames/webgames
-        pnpm install --frozen-lockfile --ignore-scripts
+        # Pinned pnpm via npx: the lockfile is v9 and a system corepack shim may be broken.
+        npx --yes pnpm@9.15.9 install --frozen-lockfile --ignore-scripts
         # `pnpm build` also runs tsc; type-checking is not needed to serve the app.
         npx --no-install vite build
     )

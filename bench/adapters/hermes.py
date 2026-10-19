@@ -11,15 +11,16 @@ from pathlib import Path
 
 HERMES = os.environ.get("HERMES_BIN", str(Path.home() / ".local/bin/hermes"))
 
-# browser = vault tool, browser-use = browser_exec (default Browser Use driver on Hermes's
-# own headless Chromium). No terminal/file/code tools, so the agent can only act through
-# the browser and nothing needs an approval prompt.
-DEFAULT_TOOLSETS = "browser,browser-use"
+# A dedicated profile (see README "Hermes setup") with browser.backend: off, i.e. Hermes's
+# built-in agent-browser tools (navigate/snapshot/click/type/scroll/press/vision/console...).
+# The default Browser Use driver (browser_exec) is only offered to sessions that also have the
+# terminal toolset, which would let the agent read the benchmark files or curl the server.
+PROFILE = os.environ.get("HERMES_BENCH_PROFILE", "bench")
+TOOLSETS = os.environ.get("HERMES_BENCH_TOOLSETS", "browser")
 
 
-def run(prompt: str, workdir: Path, out_dir: Path, budget_s: int, model: str | None = None,
-        toolsets: str = DEFAULT_TOOLSETS) -> dict:
-    cmd = [HERMES, "chat", "-q", prompt, "--format", "stream-json", "-t", toolsets,
+def run(prompt: str, workdir: Path, out_dir: Path, budget_s: int, model: str | None = None) -> dict:
+    cmd = [HERMES, "-p", PROFILE, "chat", "-q", prompt, "--format", "stream-json", "-t", TOOLSETS,
            "--ignore-rules", "--source", "tool", "--run-budget", str(budget_s)]
     if model:
         cmd += ["-m", model]
