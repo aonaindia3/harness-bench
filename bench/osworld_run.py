@@ -39,7 +39,12 @@ PROMPT = (
 )
 
 
-def load_examples(tasks_file: str, domain: str | None, limit: int | None, ids: list[str] | None):
+def needs_gdrive(ex: dict) -> bool:
+    return "googledrive" in json.dumps(ex.get("config", [])) + json.dumps(ex.get("evaluator", {}))
+
+
+def load_examples(tasks_file: str, domain: str | None, limit: int | None, ids: list[str] | None,
+                  include_gdrive: bool):
     meta = json.loads((OSW / "evaluation_examples" / tasks_file).read_text())
     out = []
     for dom, task_ids in meta.items():
@@ -49,6 +54,10 @@ def load_examples(tasks_file: str, domain: str | None, limit: int | None, ids: l
             if ids and tid not in ids:
                 continue
             ex = json.loads((OSW / "evaluation_examples" / "examples" / dom / f"{tid}.json").read_text())
+            # Google Drive tasks need OAuth client secrets OSWorld doesn't ship (cf. test_nogdrive.json).
+            if needs_gdrive(ex) and not include_gdrive:
+                print(f"skip (needs Google Drive credentials): {dom}/{tid}")
+                continue
             out.append((dom, ex))
     return out[:limit] if limit else out
 
@@ -61,14 +70,20 @@ def main():
     ap.add_argument("--limit", type=int)
     ap.add_argument("--max-steps", type=int, default=50, help="Hermes --max-turns (tool iterations)")
     ap.add_argument("--budget", type=int, default=900, help="per-task wall-clock budget, seconds")
-    ap.add_argument("--out")
+    ap.add_argument("--include-gdrive", action="store_true", help="needs Google Drive client secrets")
+    ap.add_argument("--out", help="output dir; re-using one resumes it (finished tasks are skipped)")
     args = ap.parse_args()
 
-    examples = load_examples(args.tasks_file, args.domain, args.limit, args.ids.split(",") if args.ids else None)
+    examples = load_examples(args.tasks_file, args.domain, args.limit,
+                             args.ids.split(",") if args.ids else None, args.include_gdrive)
     out = Path(args.out) if args.out else ROOT / "runs" / f"{datetime.now():%Y%m%d-%H%M%S}-hermes-osworld"
     out.mkdir(parents=True, exist_ok=True)
     (out / "config.json").write_text(json.dumps({**vars(args), "n_tasks": len(examples)}, indent=2))
     results_path = out / "results.jsonl"
+    if results_path.exists():
+        finished = {json.loads(l)["task"] for l in results_path.read_text().splitlines() if l.strip()}
+        examples = [(d, ex) for d, ex in examples if f"{d}/{ex['id']}" not in finished]
+        print(f"resuming: {len(finished)} finished, {len(examples)} to go")
 
     env = DesktopEnv(provider_name="docker", os_type="Ubuntu", action_space="pyautogui",
                      headless=True, require_a11y_tree=False)
@@ -76,7 +91,17 @@ def main():
         for i, (dom, ex) in enumerate(examples, 1):
             attempt = out / "attempts" / f"{dom}__{ex['id']}"
             attempt.mkdir(parents=True, exist_ok=True)
-            env.reset(task_config=ex)
+            try:
+                env.reset(task_config=ex)
+            except Exception as e:  # a task whose setup can't run counts as a failure, not a crash
+                row = {"suite": "osworld", "task": f"{dom}/{ex['id']}", "trial": 0, "harness": "hermes",
+                       "model": None, "success": False, "score": 0.0, "detail": f"setup failed: {e}"[:500],
+                       "wall_s": 0.0, "exit_code": None, "timed_out": False, "instruction": ex["instruction"],
+                       "final_text": "", "tool_calls": 0, "tools": {}, "tokens_total": None}
+                with results_path.open("a") as f:
+                    f.write(json.dumps(row) + "\n")
+                print(f"[{i}/{len(examples)}] fail {row['task']} ({row['detail'][:120]})", flush=True)
+                continue
             time.sleep(60)  # same settle time as OSWorld's lib_run_single
             done_file = attempt / "done.txt"
             STATE.write_text(json.dumps({"vm_ip": env.vm_ip, "server_port": env.server_port,
