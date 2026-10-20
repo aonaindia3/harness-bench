@@ -76,7 +76,9 @@ def main():
 
     examples = load_examples(args.tasks_file, args.domain, args.limit,
                              args.ids.split(",") if args.ids else None, args.include_gdrive)
-    out = Path(args.out) if args.out else ROOT / "runs" / f"{datetime.now():%Y%m%d-%H%M%S}-hermes-osworld"
+    # cwd is vendor/OSWorld by now, so a relative --out is taken relative to the repo root; the MCP
+    # server runs elsewhere and needs absolute paths in the state file.
+    out = ROOT / args.out if args.out else ROOT / "runs" / f"{datetime.now():%Y%m%d-%H%M%S}-hermes-osworld"
     out.mkdir(parents=True, exist_ok=True)
     (out / "config.json").write_text(json.dumps({**vars(args), "n_tasks": len(examples)}, indent=2))
     results_path = out / "results.jsonl"
