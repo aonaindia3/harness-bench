@@ -10,7 +10,7 @@ tools only (profile `bench`) · 1 trial per task · 240 s budget per web task ·
 | MiniWoB++ quick (25 of 125) | 25 | **12/25 (48%)** | 23.5 s | 6.3 | 38.5k |
 | WebGames quick, guarded (25 of 50 base) | 25 | **12/25 (48%)** | 40.8 s | 10.3 | 70.6k |
 | WebGames quick, first run (unguarded) | 25 | 13/25 clean (52%); 16/25 raw (64%) | 37.9 s | 10.0 | 63.8k |
-| OSWorld test_small (39) | 39 | in progress, see `runs/hermes-luna-osworld-small` | | | |
+| OSWorld test_small (36 of 39; 3 need Google Drive) | 16 so far | **3/16 (19%)**, run resuming | ~66 s | 16.8 | |
 
 Reference points (different task samples and dates, so only rough): the WebGames paper
 reports ~50% for its best agent (gemini-2.5-pro) and 95.7% for humans on base tasks.
@@ -35,8 +35,13 @@ Usage: the whole MiniWoB++ + WebGames pass used ~2% of one ChatGPT Plus 5-hour w
    widget, -1 reward), canvas/visual tasks (count-shape, draw-circle, moving-items,
    ascending-numbers: no element refs exposed), continuous widgets (slider, color wheel),
    and multi-step forms that never reached submit (book-flight, email-inbox-forward).
-4. **OSWorld (first tasks):** the agent gives up early on some tasks (e.g. "restore a file
-   from Trash": 6 actions, then `done("FAIL")`).
+4. **OSWorld gives up early.** Of 13 failures in the first 16 tasks, 8 were Hermes calling
+   `done("FAIL")` itself, usually after ~1 minute and ~16 tool calls of a 50-call budget
+   (e.g. it mistyped a Calc formula into the wrong cells, quit LibreOffice to "undo", then
+   declared the task impossible). 0/7 on LibreOffice Calc/Writer/Impress; passes were Chrome
+   (set Bing as search engine), GIMP (reduce brightness), and killing a frozen Writer.
+   Screenshots reaching the model were checked and are correct (`attempts/*/shot_*.png`).
+   One failure was environmental: Google Scholar showed the VM a CAPTCHA.
 
 ## Caveats
 
