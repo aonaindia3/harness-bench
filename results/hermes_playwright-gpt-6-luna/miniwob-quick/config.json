@@ -1,0 +1,12 @@
+{
+  "harness": "hermes_playwright",
+  "suite": "miniwob-quick",
+  "tasks": null,
+  "trials": 1,
+  "budget": 240,
+  "model": null,
+  "out": "runs/clean-hermes_playwright-miniwob-quick",
+  "harness_version": "Hermes Agent v0.22.2 (2026.9.24) \u00b7 stable \u00b7 local d923a5eb487a",
+  "n_tasks": 25,
+  "started": "2026-10-20T16:43:37.116927"
+}
