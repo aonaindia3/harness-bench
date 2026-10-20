@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import secrets
 import tempfile
@@ -27,7 +28,16 @@ from bench.tasks import MINIWOB_HTML, MINIWOB_PROMPT, ROOT, WEBGAMES_DIST, WEBGA
 # JavaScript on the page's elements (clicks, events, input values) is fine; reading the app's
 # source, React internals (component state, function source) or MiniWoB's task code is not.
 SUSPECT = re.compile(r"WOB_|core\.endEpisode|startEpisodeReal|genProblem|/assets/[^\"']*\.js|\"password\"\s*:"
-                     r"|__react|_reactRootContainer|memoized(State|Props)|file://")
+                     r"|__react|_reactRootContainer|memoized(State|Props)")
+# Local files: only the browser's own downloads (a task can hand the agent a file) may be opened.
+FILE_URL = re.compile(r"file://(/[^\"'\s]*)")
+DOWNLOAD_DIRS = ("/tmp/hb-playwright-out/",)
+
+
+def suspect(tool_input: str) -> bool:
+    if SUSPECT.search(tool_input):
+        return True
+    return any(not os.path.normpath(p).startswith(DOWNLOAD_DIRS) for p in FILE_URL.findall(tool_input))
 
 
 def main(argv=None):
@@ -78,7 +88,7 @@ def main(argv=None):
                    "harness": args.harness, "model": args.model, "url": url, **grade(task, token, res, mw_results)}
             row.update({k: v for k, v in res.items() if k != "tool_inputs"})
             row["model"] = res.get("model") or args.model
-            row["suspect"] = any(SUSPECT.search(s) for s in res.get("tool_inputs", []))
+            row["suspect"] = any(suspect(s) for s in res.get("tool_inputs", []))
             if task.suite == "webgames":
                 row.update(difficulty=task.meta.get("difficulty"), variant=task.meta.get("variant"),
                            tags=task.meta.get("tags"))
