@@ -6,7 +6,7 @@ browser / desktop UI-driving benchmarks, scored by each benchmark's own checker.
 | Suite | What it is | Scoring | Runs where |
 |---|---|---|---|
 | **MiniWoB++** (Farama, BrowserGym's web set) | 125 small synthetic web UI tasks: forms, date pickers, drag, menus, email UI, canvas | the page's own reward; success = raw reward > 0 (BrowserGym convention) | local static server |
-| **WebGames** (Convergence, 2025) | 149 challenges (50 base + easy/hard variants) built to be easy for humans, hard for agents | password revealed on completion must appear in the final answer (the official scorer) | local build of the SPA |
+| **WebGames** (Convergence, 2025) | 150 challenges (53 base + easy/hard variants) built to be easy for humans, hard for agents | password revealed on completion must appear in the final answer (the official scorer) | local build of the SPA |
 | **OSWorld** (xlang-ai) | real Ubuntu desktop tasks (Chrome, LibreOffice, GIMP, VS Code, Thunderbird, VLC, OS) | OSWorld's own `DesktopEnv.evaluate()` | Docker + KVM VM |
 
 Everything runs on this machine against localhost / a local VM. The agent's browser never
@@ -34,7 +34,8 @@ Suites: `miniwob-all`, `miniwob-quick`, `webgames-all`, `webgames-base`, `webgam
 
 success, score, wall time, tool calls (by tool), tokens (input/output/total/cache read),
 timeout, the final answer, and a `suspect` flag when the agent's tool inputs touch page
-internals (MiniWoB's `core.*`/`WOB_*`, the WebGames JS bundle) instead of using the UI.
+internals (MiniWoB's `core.*`/`WOB_*`, the WebGames JS bundle, React component state or source)
+instead of using the page.
 The report counts a suspect pass as a failure.
 Full transcripts are in `runs/<run>/attempts/<task>/transcript.jsonl`.
 
@@ -44,7 +45,9 @@ Full transcripts are in `runs/<run>/attempts/<task>/transcript.jsonl`.
   (`task:trial`), lifts the 10 s episode limit (as BrowserGym does for LLM agents),
   auto-starts the episode and reports the first episode's reward to the local server.
   The agent reads the instruction from the page (BrowserGym puts the same text in the goal).
-- **WebGames**: prompt is the exact template from `vendor/webgames/evals`, with the local URL.
+- **WebGames**: prompt is the template from `vendor/webgames/evals`, with the local URL, plus one
+  sentence: console JavaScript on the page's elements is allowed, reading the site's source or
+  internal app state (React internals) is not and counts as a failure.
   The JS bundle holds every password, so the local server only serves `.js` files to real
   `<script>` loads (`Sec-Fetch-Dest: script`); `fetch()` from the console or opening the file
   as a page gets a 403. (Added after Hermes read passwords out of the bundle in 6/25 attempts.)

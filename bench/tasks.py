@@ -1,7 +1,8 @@
 """Task lists and prompts for each suite.
 
 Prompts follow each benchmark's own protocol where one exists:
-- WebGames: the exact template from vendor/webgames/evals (password must appear in the final answer).
+- WebGames: the template from vendor/webgames/evals (password must appear in the final answer), plus
+  one sentence stating the no-source/no-internals rule that the report enforces.
 - MiniWoB++: BrowserGym-style -- the goal is the instruction rendered on the page.
 """
 
@@ -9,6 +10,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,8 +23,7 @@ WEBGAMES_TASKS = VENDOR / "webgames" / "evals" / "browseruse_webgames" / "webgam
 QUICK_SIZE = 25
 QUICK_SEED = 20261019  # fixed so every harness gets the same "quick" sample
 
-# Not part of the BrowserGym MiniWoB++ task set (debug/human-only pages).
-MINIWOB_EXCLUDE = {"click-test-transfer", "click-checkboxes-transfer"}
+MINIWOB_REGISTRATION = VENDOR / "miniwob-plusplus" / "miniwob" / "registration.py"
 
 MINIWOB_PROMPT = (
     "Open {url} in the browser. The page shows a task instruction in the box at the top. "
@@ -33,7 +34,9 @@ MINIWOB_PROMPT = (
 
 WEBGAMES_PROMPT = (
     "go to {url} and complete the challenge as described. On successful completion, the task "
-    "will give you a password. Tell me what the password is."
+    "will give you a password. Tell me what the password is. You may use the browser console on the "
+    "page's elements, but do not read the site's source code or its internal app state (for example "
+    "React internals); an attempt that does counts as a failure."
 )
 
 
@@ -45,13 +48,20 @@ class Task:
 
 
 def miniwob_tasks() -> list[Task]:
-    names = sorted(p.stem for p in (MINIWOB_HTML / "miniwob").glob("*.html"))
-    return [Task("miniwob", n) for n in names if n not in MINIWOB_EXCLUDE]
+    # The 125 registered environments (what BrowserGym runs); a few pages in miniwob/html
+    # (simon-says, hover-shape, ...) are not registered.
+    names = sorted(set(re.findall(r'id="miniwob/([a-z0-9-]+)-v1"', MINIWOB_REGISTRATION.read_text())))
+    return [Task("miniwob", n) for n in names]
 
 
 def webgames_tasks() -> list[Task]:
     rows = [json.loads(l) for l in WEBGAMES_TASKS.read_text().splitlines() if l.strip()]
     return [Task("webgames", r["id"], r) for r in rows]
+
+
+def _is_base(t: Task) -> bool:
+    # Easy/hard variants are labelled; newer base tasks have no "variant" field at all.
+    return t.meta.get("variant") not in ("easy", "hard")
 
 
 def _quick(tasks: list[Task]) -> list[Task]:
@@ -63,8 +73,8 @@ SUITES = {
     "miniwob-all": miniwob_tasks,
     "miniwob-quick": lambda: _quick(miniwob_tasks()),
     "webgames-all": webgames_tasks,
-    "webgames-base": lambda: [t for t in webgames_tasks() if t.meta.get("variant") == "base"],
-    "webgames-quick": lambda: _quick([t for t in webgames_tasks() if t.meta.get("variant") == "base"]),
+    "webgames-base": lambda: [t for t in webgames_tasks() if _is_base(t)],
+    "webgames-quick": lambda: _quick([t for t in webgames_tasks() if _is_base(t)]),
 }
 
 

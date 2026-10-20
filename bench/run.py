@@ -24,7 +24,10 @@ from bench import adapters, report, server
 from bench.tasks import MINIWOB_HTML, MINIWOB_PROMPT, ROOT, WEBGAMES_DIST, WEBGAMES_PROMPT, load_suite
 
 # Tool inputs that suggest the agent read or poked page internals instead of using the UI.
-SUSPECT = re.compile(r"WOB_|core\.endEpisode|startEpisodeReal|genProblem|/assets/[^\"']*\.js|\"password\"\s*:")
+# JavaScript on the page's elements (clicks, events, input values) is fine; reading the app's
+# source, React internals (component state, function source) or MiniWoB's task code is not.
+SUSPECT = re.compile(r"WOB_|core\.endEpisode|startEpisodeReal|genProblem|/assets/[^\"']*\.js|\"password\"\s*:"
+                     r"|__react|_reactRootContainer|memoized(State|Props)")
 
 
 def main(argv=None):
