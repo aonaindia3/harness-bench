@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -78,7 +79,7 @@ def _events(transcript: Path) -> tuple[list[dict], bool]:
             else:
                 events.append({"kind": "say", "text": ev.get("text", ""), "t": ts})
         elif kind == "tool_use":
-            name = ev.get("name", "?").removeprefix("mcp__osworld__")
+            name = re.sub(r"^mcp_+[a-z0-9-]+_+", "", ev.get("name", "?"))
             events.append({"kind": "do", "tool": name, "text": _brief(name, ev.get("input")), "t": ts})
         elif kind == "tool_result" and ev.get("is_error"):
             events.append({"kind": "error", "text": str(ev.get("output", ""))[:300], "t": ts})

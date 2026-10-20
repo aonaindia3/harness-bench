@@ -27,7 +27,7 @@ from bench.tasks import MINIWOB_HTML, MINIWOB_PROMPT, ROOT, WEBGAMES_DIST, WEBGA
 # JavaScript on the page's elements (clicks, events, input values) is fine; reading the app's
 # source, React internals (component state, function source) or MiniWoB's task code is not.
 SUSPECT = re.compile(r"WOB_|core\.endEpisode|startEpisodeReal|genProblem|/assets/[^\"']*\.js|\"password\"\s*:"
-                     r"|__react|_reactRootContainer|memoized(State|Props)")
+                     r"|__react|_reactRootContainer|memoized(State|Props)|file://")
 
 
 def main(argv=None):

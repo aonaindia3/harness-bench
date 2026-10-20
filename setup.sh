@@ -2,6 +2,7 @@
 # Fetch and build the benchmarks into vendor/ (pinned commits).
 #   ./setup.sh            MiniWoB++ + WebGames
 #   ./setup.sh webgames   just WebGames
+#   ./setup.sh playwright Playwright MCP (for the hermes_playwright adapter)
 set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p vendor
@@ -60,10 +61,19 @@ print('VM image:', os.path.abspath(os.path.join(VMS_DIR, 'Ubuntu.qcow2')))"
     echo "✓ OSWorld ready (vendor/OSWorld)"
 }
 
+PLAYWRIGHT_MCP_VERSION=0.0.83
+
+playwright() {  # Playwright MCP browser server, for the hermes_playwright adapter
+    npm install --silent --no-audit --no-fund --prefix vendor/playwright-mcp "@playwright/mcp@$PLAYWRIGHT_MCP_VERSION"
+    node vendor/playwright-mcp/node_modules/@playwright/mcp/cli.js --version
+    echo "✓ playwright-mcp $PLAYWRIGHT_MCP_VERSION -> vendor/playwright-mcp"
+}
+
 case "${1:-all}" in
     all) miniwob; webgames ;;
     miniwob) miniwob ;;
     webgames) webgames ;;
     osworld) osworld ;;
-    *) echo "usage: $0 [all|miniwob|webgames|osworld]" >&2; exit 2 ;;
+    playwright) playwright ;;
+    *) echo "usage: $0 [all|miniwob|webgames|osworld|playwright]" >&2; exit 2 ;;
 esac

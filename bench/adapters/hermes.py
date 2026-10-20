@@ -27,8 +27,9 @@ def version() -> str | None:
     return out.splitlines()[0].strip() if out else None
 
 
-def run(prompt: str, workdir: Path, out_dir: Path, budget_s: int, model: str | None = None) -> dict:
-    cmd = [HERMES, "-p", PROFILE, "chat", "-q", prompt, "--format", "stream-json", "-t", TOOLSETS,
+def run(prompt: str, workdir: Path, out_dir: Path, budget_s: int, model: str | None = None,
+        profile: str = PROFILE, toolsets: str = TOOLSETS) -> dict:
+    cmd = [HERMES, "-p", profile, "chat", "-q", prompt, "--format", "stream-json", "-t", toolsets,
            "--ignore-rules", "--source", "tool", "--run-budget", str(budget_s)]
     if model:
         cmd += ["-m", model]

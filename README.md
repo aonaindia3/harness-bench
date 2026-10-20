@@ -93,6 +93,47 @@ hermes -p bench-osworld mcp add osworld --command "$PWD/vendor/OSWorld/.venv/bin
     --args "$PWD/bench/osworld_mcp.py"
 ```
 
+### Hermes with Playwright (`--harness hermes_playwright`)
+
+Same Hermes, model and prompts, but the browser is [Playwright MCP](https://github.com/microsoft/playwright-mcp)
+(pinned in `setup.sh`) instead of the built-in tools, so the two runs isolate the effect of the
+browser toolset. Profile **`bench-playwright`**: the built-in `browser` toolset is off and the
+`playwright` MCP server runs the same Chromium build Hermes uses, headless, with an in-memory profile.
+
+```bash
+./setup.sh playwright
+hermes profile create bench-playwright --clone-from bench --clone-all --no-alias
+hermes -p bench-playwright tools disable browser
+```
+
+`hermes mcp add` asks interactively which tools to enable, so add the server to
+`~/.hermes/profiles/bench-playwright/config.yaml` directly (adjust the two paths):
+
+```yaml
+mcp_servers:
+  playwright:
+    command: node
+    args: [/path/to/harness-bench/vendor/playwright-mcp/node_modules/@playwright/mcp/cli.js,
+           --headless, --isolated, --executable-path, ~/.hermes/tools/chromium-1208/chrome-linux64/chrome,
+           --output-dir, /tmp/hb-playwright-out]
+    enabled: true
+    tools:
+      include: [browser_navigate, browser_navigate_back, browser_snapshot, browser_take_screenshot,
+                browser_find, browser_click, browser_hover, browser_drag, browser_type, browser_fill_form,
+                browser_press_key, browser_select_option, browser_wait_for, browser_evaluate,
+                browser_console_messages, browser_handle_dialog, browser_tabs, browser_resize,
+                browser_emulate_media, browser_close]
+```
+
+The allow-list leaves out `browser_run_code_unsafe` (runs code in the server process, so it can
+read local files), `browser_network_request(s)` (return response bodies, including the WebGames
+bundle with every password) and `browser_file_upload` / `browser_drop`. Check with
+`hermes -p bench-playwright mcp list` (should say "20 selected").
+
+Hermes pauses an MCP server for 60 s after 3 consecutive failed calls (hard-coded circuit breaker
+in `tools/mcp_tool.py`); the built-in browser tools have no such pause. That is part of what this
+configuration measures, so it is left as is.
+
 ## Adding another harness
 
 Write `bench/adapters/<name>.py` with `run(prompt, workdir, out_dir, budget_s, model=None) -> dict`
@@ -116,7 +157,7 @@ you change the model).
 | Tasks | `miniwob-quick`, `webgames-quick` (fixed seed, same 25 for everyone), OSWorld `test_small.json` (36; 3 Google Drive tasks skipped) |
 | Trials | 1 per task (use `--trials 3` for tighter numbers, and report it) |
 | Limits | web: 240 s per attempt; OSWorld: 50 tool iterations, 900 s |
-| Tools | web: browser tools only, no terminal/file/web-search tools; OSWorld: only the four MCP tools |
+| Tools | web: browser tools only, no terminal/file/web-search tools (Hermes: built-in browser or the Playwright allow-list above); OSWorld: only the four MCP tools |
 | Isolation | fresh session per attempt, no memory, skills or rules carried between attempts |
 | Prompts | as in `bench/tasks.py` and `bench/osworld_run.py`, unchanged |
 | Cheating | JavaScript on the page's elements is allowed; reading the app's source or internal state is a failure (`suspect`) |
