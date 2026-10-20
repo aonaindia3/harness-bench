@@ -3,7 +3,8 @@
     ./bench.sh osworld --tasks-file test_small.json [--domain os] [--limit 5] [--max-steps 50]
 
 Per task: DesktopEnv.reset(task) -> Hermes drives the VM through bench/osworld_mcp.py ->
-DesktopEnv.evaluate(). Rows use the same results.jsonl schema as bench/run.py.
+DesktopEnv.evaluate(). Rows use the same results.jsonl schema as bench/run.py. Each task's screen
+is recorded to attempts/<task>/recording.mp4 (OSWorld's own recorder; --no-record turns it off).
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ os.chdir(OSW)  # DesktopEnv resolves ./docker_vm_data and ./cache relative to cw
 
 from desktop_env.desktop_env import DesktopEnv  # noqa: E402
 
-from bench.adapters.hermes import HERMES, parse_transcript  # noqa: E402
+from bench.adapters.hermes import HERMES, parse_transcript, version  # noqa: E402
 from bench.report import summarize  # noqa: E402
 
 STATE = ROOT / "runs" / ".osworld_current.json"
@@ -37,6 +38,16 @@ PROMPT = (
     "Work step by step: look at the screen, act, then check the result. When the task is "
     "complete call done(\"DONE\"); if it cannot be done as stated call done(\"FAIL\")."
 )
+
+
+def _try(fn) -> bool:
+    """Recording is a convenience: a recorder failure is logged, never fails the task."""
+    try:
+        fn()
+        return True
+    except Exception as e:
+        print(f"recording error: {e}", flush=True)
+        return False
 
 
 def needs_gdrive(ex: dict) -> bool:
@@ -72,6 +83,7 @@ def main():
     ap.add_argument("--budget", type=int, default=900, help="per-task wall-clock budget, seconds")
     ap.add_argument("--include-gdrive", action="store_true", help="needs Google Drive client secrets")
     ap.add_argument("--out", help="output dir; re-using one resumes it (finished tasks are skipped)")
+    ap.add_argument("--no-record", action="store_true", help="don't save a screen recording per task")
     args = ap.parse_args()
 
     examples = load_examples(args.tasks_file, args.domain, args.limit,
@@ -80,7 +92,8 @@ def main():
     # server runs elsewhere and needs absolute paths in the state file.
     out = ROOT / args.out if args.out else ROOT / "runs" / f"{datetime.now():%Y%m%d-%H%M%S}-hermes-osworld"
     out.mkdir(parents=True, exist_ok=True)
-    (out / "config.json").write_text(json.dumps({**vars(args), "n_tasks": len(examples)}, indent=2))
+    (out / "config.json").write_text(json.dumps({**vars(args), "suite": "osworld", "harness": "hermes",
+                                                 "harness_version": version(), "n_tasks": len(examples)}, indent=2))
     results_path = out / "results.jsonl"
     if results_path.exists():
         finished = {json.loads(l)["task"] for l in results_path.read_text().splitlines() if l.strip()}
@@ -105,6 +118,7 @@ def main():
                 print(f"[{i}/{len(examples)}] fail {row['task']} ({row['detail'][:120]})", flush=True)
                 continue
             time.sleep(60)  # same settle time as OSWorld's lib_run_single
+            recording = not args.no_record and _try(env.controller.start_recording)
             done_file = attempt / "done.txt"
             STATE.write_text(json.dumps({"vm_ip": env.vm_ip, "server_port": env.server_port,
                                          "done_file": str(done_file), "action_log": str(attempt / "actions.jsonl")}))
@@ -124,6 +138,8 @@ def main():
             wall = time.monotonic() - t0
             status = done_file.read_text().strip() if done_file.exists() else None
             env.step("FAIL" if status == "FAIL" else "DONE", pause=0)
+            if recording:
+                _try(lambda: env.controller.end_recording(str(attempt / "recording.mp4")))
             time.sleep(20)  # OSWorld's settle time before evaluation
             try:
                 score, err = float(env.evaluate()), None

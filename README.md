@@ -23,7 +23,11 @@ touches the public web or your own Chrome profile.
 ./bench.sh --harness hermes --suite webgames-quick    # 25 base tasks
 ./bench.sh osworld --domain os --limit 2              # OSWorld via MCP
 ./bench.sh report runs/*/results.jsonl                # summary + per-task table
+python3 -m bench.watch                                # live view at http://127.0.0.1:8765
 ```
+
+`bench.watch` shows each active run's progress, the current task and its goal, and a live feed
+of what the agent says and which tools it calls; for OSWorld it embeds the VM desktop view-only.
 
 Suites: `miniwob-all`, `miniwob-quick`, `webgames-all`, `webgames-base`, `webgames-quick`
 (`--tasks a,b` narrows any suite). "quick" = a fixed random sample of 25 (seed in
@@ -37,7 +41,9 @@ timeout, the final answer, and a `suspect` flag when the agent's tool inputs tou
 internals (MiniWoB's `core.*`/`WOB_*`, the WebGames JS bundle, React component state or source)
 instead of using the page.
 The report counts a suspect pass as a failure.
-Full transcripts are in `runs/<run>/attempts/<task>/transcript.jsonl`.
+Full transcripts are in `runs/<run>/attempts/<task>/transcript.jsonl`; OSWorld attempts also keep
+the agent's screenshots, an action log and a screen recording. `runs/` is not in git; see
+[Comparing harnesses](#comparing-harnesses) for sharing.
 
 ## Protocol notes
 
@@ -55,7 +61,8 @@ Full transcripts are in `runs/<run>/attempts/<task>/transcript.jsonl`.
   accessibility_tree, execute pyautogui code, done DONE/FAIL); `bench/osworld_run.py`
   resets the task, runs the harness, then calls OSWorld's evaluator. A `done("FAIL")` is
   passed to OSWorld as its FAIL action (that is how infeasible tasks are scored).
-  Default 50 tool iterations and 900 s per task.
+  Default 50 tool iterations and 900 s per task. Each task's screen is recorded to
+  `attempts/<task>/recording.mp4` with OSWorld's own recorder (`--no-record` to skip).
 
 ## Hermes setup
 
@@ -91,3 +98,36 @@ hermes -p bench-osworld mcp add osworld --command "$PWD/vendor/OSWorld/.venv/bin
 Write `bench/adapters/<name>.py` with `run(prompt, workdir, out_dir, budget_s, model=None) -> dict`
 (see `bench/adapters/__init__.py` for the keys), then `./bench.sh --harness <name> --suite ...`.
 The harness must drive a browser to the URL in the prompt and should be limited to browser tools.
+Return `tool_inputs` (every tool call's input as a string): the cheat check reads them, and a
+harness that leaves them out is never flagged. Return `model` and expose `version()` if you can;
+both end up in the results so the comparison table can tell runs apart.
+
+`bench/osworld_run.py` currently launches Hermes; for another harness, change the command it runs
+and keep the rest (the same prompt, the four tools from `bench/osworld_mcp.py`, the 50-step and
+900 s limits, OSWorld's evaluator).
+
+## Comparing harnesses
+
+Keep everything below the same so the numbers line up; change only the harness (and say so if
+you change the model).
+
+| | Setting |
+|---|---|
+| Tasks | `miniwob-quick`, `webgames-quick` (fixed seed, same 25 for everyone), OSWorld `test_small.json` (36; 3 Google Drive tasks skipped) |
+| Trials | 1 per task (use `--trials 3` for tighter numbers, and report it) |
+| Limits | web: 240 s per attempt; OSWorld: 50 tool iterations, 900 s |
+| Tools | web: browser tools only, no terminal/file/web-search tools; OSWorld: only the four MCP tools |
+| Isolation | fresh session per attempt, no memory, skills or rules carried between attempts |
+| Prompts | as in `bench/tasks.py` and `bench/osworld_run.py`, unchanged |
+| Cheating | JavaScript on the page's elements is allowed; reading the app's source or internal state is a failure (`suspect`) |
+
+Record the harness version, model, and how it was billed (plan or API) with the results.
+
+Share a finished run:
+
+```bash
+./bench.sh publish runs/<run>                 # -> results/<harness>-<model>/<suite>/ + dist/*.tar.gz
+git add results/ && git commit -m "results: <harness> <suite>" && git push
+gh release upload <tag> dist/<harness>-<model>-<suite>.tar.gz   # transcripts, screenshots, videos
+./bench.sh report --compare results/*/*/results.jsonl          # all harnesses side by side
+```

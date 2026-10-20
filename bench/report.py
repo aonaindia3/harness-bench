@@ -1,6 +1,7 @@
 """Summaries over results.jsonl files.
 
-    python3 -m bench.report runs/*/results.jsonl
+    python3 -m bench.report runs/*/results.jsonl            # summary + per-task table
+    python3 -m bench.report --compare results/*/*/results.jsonl   # harnesses side by side
 """
 
 from __future__ import annotations
@@ -57,8 +58,44 @@ def per_task(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _who(r: dict) -> str:
+    return f"{r['harness']} / {r.get('model') or 'default'}"
+
+
+def compare(rows: list[dict]) -> str:
+    """Success rate per suite, then a task-by-task grid, one column per harness/model."""
+    whos = sorted({_who(r) for r in rows})
+    suites = sorted({r["suite"] for r in rows})
+    lines = ["| suite | " + " | ".join(whos) + " |", "|---|" + "---|" * len(whos)]
+    for s in suites:
+        cells = []
+        for w in whos:
+            rs = [r for r in rows if r["suite"] == s and _who(r) == w]
+            ok = sum(passed(r) for r in rs)
+            cells.append(f"{ok}/{len(rs)} ({100 * ok / len(rs):.0f}%)" if rs else "-")
+        lines.append(f"| {s} | " + " | ".join(cells) + " |")
+    lines += ["", "| suite | task | " + " | ".join(whos) + " |", "|---|---|" + "---|" * len(whos)]
+    tasks = sorted({(r["suite"], r["task"]) for r in rows})
+    for s, t in tasks:
+        cells = []
+        for w in whos:
+            rs = [r for r in rows if r["suite"] == s and r["task"] == t and _who(r) == w]
+            ok = sum(passed(r) for r in rs)
+            cell = "-" if not rs else ("PASS" if ok == len(rs) else "fail" if ok == 0 else f"{ok}/{len(rs)}")
+            if any(r.get("suspect") for r in rs):
+                cell += " (suspect)"
+            cells.append(cell)
+        lines.append(f"| {s} | {t} | " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
-    rows = [json.loads(l) for p in sys.argv[1:] for l in open(p) if l.strip()]
-    print(summarize(rows))
-    print()
-    print(per_task(rows))
+    args = sys.argv[1:]
+    mode = args.pop(0) if args and args[0] == "--compare" else None
+    rows = [json.loads(l) for p in args for l in open(p) if l.strip()]
+    if mode:
+        print(compare(rows))
+    else:
+        print(summarize(rows))
+        print()
+        print(per_task(rows))

@@ -1,5 +1,9 @@
 # Results
 
+> **Superseded; a clean rerun is in progress (2026-10-20).** These numbers predate fixes to the
+> task lists (MiniWoB++ used 5 unregistered pages; WebGames sampled from 38 of 53 base tasks) and
+> to the cheat check (React internals were not flagged). Don't compare new runs against them.
+
 Hermes Agent v0.22.2 · model `gpt-6-luna` via ChatGPT Plus (openai-codex) · built-in browser
 tools only (profile `bench`) · 1 trial per task · 240 s budget per web task · 2026-10-19.
 

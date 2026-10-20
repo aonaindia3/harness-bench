@@ -51,7 +51,8 @@ def main(argv=None):
     mw = server.start_miniwob(MINIWOB_HTML, mw_results) if "miniwob" in suites else None
     wg = server.start_webgames(WEBGAMES_DIST) if "webgames" in suites else None
 
-    (out / "config.json").write_text(json.dumps({**vars(args), "n_tasks": len(tasks),
+    harness_version = adapter.version() if hasattr(adapter, "version") else None
+    (out / "config.json").write_text(json.dumps({**vars(args), "harness_version": harness_version, "n_tasks": len(tasks),
                                                  "started": datetime.now().isoformat()}, indent=2))
     results_path = out / "results.jsonl"
     total = len(tasks) * args.trials
@@ -76,6 +77,7 @@ def main(argv=None):
             row = {"suite": task.suite, "task": task.id, "trial": trial, "token": token,
                    "harness": args.harness, "model": args.model, "url": url, **grade(task, token, res, mw_results)}
             row.update({k: v for k, v in res.items() if k != "tool_inputs"})
+            row["model"] = res.get("model") or args.model
             row["suspect"] = any(SUSPECT.search(s) for s in res.get("tool_inputs", []))
             if task.suite == "webgames":
                 row.update(difficulty=task.meta.get("difficulty"), variant=task.meta.get("variant"),

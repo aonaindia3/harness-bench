@@ -19,6 +19,14 @@ PROFILE = os.environ.get("HERMES_BENCH_PROFILE", "bench")
 TOOLSETS = os.environ.get("HERMES_BENCH_TOOLSETS", "browser")
 
 
+def version() -> str | None:
+    try:
+        out = subprocess.run([HERMES, "--version"], capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return out.splitlines()[0].strip() if out else None
+
+
 def run(prompt: str, workdir: Path, out_dir: Path, budget_s: int, model: str | None = None) -> dict:
     cmd = [HERMES, "-p", PROFILE, "chat", "-q", prompt, "--format", "stream-json", "-t", TOOLSETS,
            "--ignore-rules", "--source", "tool", "--run-budget", str(budget_s)]
@@ -44,6 +52,7 @@ def parse_transcript(path: Path) -> dict:
     tools: Counter[str] = Counter()
     tool_inputs: list[str] = []
     result: dict = {}
+    model = None
     text_chunks: list[str] = []
     for line in path.read_text(errors="replace").splitlines():
         try:
@@ -51,7 +60,9 @@ def parse_transcript(path: Path) -> dict:
         except ValueError:
             continue
         kind = ev.get("type")
-        if kind == "tool_use":
+        if kind == "system" and ev.get("subtype") == "init":
+            model = ev.get("model")
+        elif kind == "tool_use":
             tools[ev.get("name", "?")] += 1
             tool_inputs.append(json.dumps(ev.get("input", "")))
         elif kind == "text":
@@ -60,6 +71,7 @@ def parse_transcript(path: Path) -> dict:
             result = ev
     tokens = result.get("tokens") or {}
     return {
+        "model": model,
         "final_text": result.get("text", "".join(text_chunks)),
         "session_id": result.get("session_id"),
         "tool_calls": sum(tools.values()),
