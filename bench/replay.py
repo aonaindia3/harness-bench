@@ -14,6 +14,7 @@ import argparse
 import html
 import json
 import re
+import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -46,6 +47,20 @@ def _rows(run: Path) -> dict[str, dict]:
 
 def _attempt(run: Path, task: str) -> Path:
     return run / "attempts" / task.replace("/", "__", 1)
+
+
+def web_video(attempt: Path) -> Path | None:
+    """OSWorld's recorder writes H.264 High 4:4:4 (yuv444p), which browsers can't decode. Convert
+    once to yuv420p next to the original (recording.web.mp4) and serve that."""
+    src, dst = attempt / "recording.mp4", attempt / "recording.web.mp4"
+    if not src.exists():
+        return None
+    if not dst.exists() or dst.stat().st_mtime < src.stat().st_mtime:
+        tmp = dst.with_suffix(".tmp.mp4")
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-c:v", "libx264", "-preset", "veryfast",
+                        "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", str(tmp)], check=True)
+        tmp.replace(dst)
+    return dst
 
 
 def _steps(attempt: Path) -> list[dict]:
@@ -125,6 +140,10 @@ def main(argv=None):
     ap.add_argument("--port", type=int, default=8766)
     args = ap.parse_args(argv)
     runs = [Path(r).resolve() for r in args.runs]
+    print("converting recordings for the browser (first start only)...", flush=True)
+    for run in runs:
+        for a in sorted((run / "attempts").glob("*")):
+            web_video(a)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -147,10 +166,10 @@ def main(argv=None):
             if u.path == "/task" and "t" in q:
                 return self._send(200, task_page(runs, unquote(q["t"])).encode(), "text/html; charset=utf-8")
             if u.path == "/file" and q.get("f") == "recording.mp4" and q.get("run") in ("0", "1"):
-                f = _attempt(runs[int(q["run"])], unquote(q.get("t", "")))
-                path = (f / "recording.mp4").resolve()
-                if not path.is_file() or runs[int(q["run"])] not in path.parents:
+                f = _attempt(runs[int(q["run"])], unquote(q.get("t", ""))).resolve()
+                if runs[int(q["run"])] not in f.parents or not (f / "recording.mp4").is_file():
                     return self._send(404, b"not found", "text/plain")
+                path = web_video(f)
                 data = path.read_bytes()
                 rng = re.match(r"bytes=(\d*)-(\d*)", self.headers.get("Range", ""))
                 if rng:  # browsers need ranges to seek
