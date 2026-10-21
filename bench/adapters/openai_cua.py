@@ -36,7 +36,8 @@ def run(prompt: str, workdir: Path, out_dir: Path, budget_s: int, model: str | N
     shutil.rmtree(DOWNLOADS, ignore_errors=True)
     DOWNLOADS.mkdir(parents=True)
     url = re.search(r"https?://[^\s]+?(?=[.,]?(\s|$))", prompt).group(0)
-    task = {"prompt": prompt, "url": url, "out_dir": str(out_dir), "budget_s": budget_s,
+    # The agent runs with cwd=workdir, so every path it gets must be absolute.
+    task = {"prompt": prompt, "url": url, "out_dir": str(out_dir.resolve()), "budget_s": budget_s,
             "model": model or MODEL, "effort": EFFORT, "downloads": str(DOWNLOADS), "chromium": CHROMIUM}
     (workdir / "task.json").write_text(json.dumps(task))
     t0 = time.monotonic()
