@@ -111,9 +111,15 @@ def run(controller, instruction: str, attempt: Path, budget_s: int, max_steps: i
             if time.monotonic() > deadline:
                 timed_out = True
                 break
-            for attempt_n in range(4):
-                r = requests.post("https://api.openai.com/v1/responses", headers=headers, json=body,
-                                  timeout=max(10, deadline - time.monotonic()))
+            for attempt_n in range(4):  # retry rate limits, server errors and network blips
+                try:
+                    r = requests.post("https://api.openai.com/v1/responses", headers=headers, json=body,
+                                      timeout=max(10, deadline - time.monotonic()))
+                except requests.ConnectionError:
+                    if attempt_n == 3:
+                        raise
+                    time.sleep(2 * 2 ** attempt_n)
+                    continue
                 if r.ok or r.status_code not in (429, 500, 502, 503) or attempt_n == 3:
                     break
                 time.sleep(2 * 2 ** attempt_n)
