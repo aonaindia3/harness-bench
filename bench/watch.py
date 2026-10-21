@@ -86,6 +86,22 @@ def _events(transcript: Path) -> tuple[list[dict], bool]:
         elif kind == "result":
             finished = True
             events.append({"kind": "final", "text": ev.get("text", ""), "t": ts})
+        # Codex `exec --json` events (bench/adapters/codex.py)
+        elif kind in ("item.started", "item.completed"):
+            item = ev.get("item") or {}
+            if item.get("type") == "mcp_tool_call" and kind == "item.started":
+                events.append({"kind": "do", "tool": item.get("tool", "?"),
+                               "text": _brief(item.get("tool"), item.get("arguments")), "t": None})
+            elif item.get("type") == "mcp_tool_call" and item.get("error"):
+                events.append({"kind": "error", "text": str(item["error"].get("message", ""))[:300], "t": None})
+            elif item.get("type") == "agent_message" and kind == "item.completed":
+                events.append({"kind": "say", "text": item.get("text", ""), "t": None})
+            elif item.get("type") == "error":
+                events.append({"kind": "error", "text": item.get("message", "")[:300], "t": None})
+        elif kind == "turn.completed":
+            finished = True
+            if events and events[-1]["kind"] == "say":
+                events[-1]["kind"] = "final"
     for e in events:
         e["text"] = e["text"].strip()
     return [e for e in events if e["text"]][-MAX_EVENTS:], finished

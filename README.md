@@ -134,6 +134,28 @@ Hermes pauses an MCP server for 60 s after 3 consecutive failed calls (hard-code
 in `tools/mcp_tool.py`); the built-in browser tools have no such pause. That is part of what this
 configuration measures, so it is left as is.
 
+## Codex setup (`--harness codex`)
+
+`bench/adapters/codex.py` runs `codex exec --json` with the same model and reasoning effort as the
+Hermes runs (`gpt-6-luna`, medium) and the same Playwright MCP allow-list as `hermes_playwright`,
+so Codex vs `hermes_playwright` differs only in the harness. Needs `./setup.sh playwright` and a
+Codex CLI logged in with ChatGPT (`codex login`); the VS Code extension's bundled binary is found
+automatically, or set `CODEX_BIN`.
+
+Settings are in [`bench/codex/config.toml`](bench/codex/config.toml); the adapter writes them to an
+isolated `CODEX_HOME` (`~/.codex-bench`, override with `CODEX_BENCH_HOME`) so your own Codex config,
+memories, skills and plugins are not used. Only `auth.json` is shared, as a symlink, so token
+refreshes keep both logged in. Each attempt runs `--ephemeral`, read-only sandbox, in an empty
+temp dir.
+
+Shell, `view_image`, web search, Codex's built-in browsers, plugins, apps and multi-agent are off.
+Code mode (`functions.exec`) must stay on: this Codex version calls every tool, including MCP
+tools, through it. It is a JavaScript sandbox without file, network or process access (tested:
+`node:fs`, `fetch`, `child_process` all fail, and a planted canary file could not be read). Its
+calls do not appear in the `--json` event log; the MCP calls made from it do, and those are what
+the cheat check reads. `default_tools_approval_mode = "approve"` is required because `exec` never
+prompts.
+
 ## Adding another harness
 
 Write `bench/adapters/<name>.py` with `run(prompt, workdir, out_dir, budget_s, model=None) -> dict`

@@ -1,0 +1,35 @@
+# Codex CLI config for the benchmark (bench/adapters/codex.py writes it to $CODEX_BENCH_HOME,
+# default ~/.codex-bench, filling in {ROOT} and {CHROMIUM}). Same model and reasoning effort as the
+# Hermes runs; the only tools are the Playwright MCP allow-list used by hermes_playwright.
+# Shell, code mode (functions.exec), view_image, web search, built-in browsers, plugins, apps,
+# memories and skills are off, so the agent cannot read the benchmark files.
+model = "gpt-6-luna"
+model_reasoning_effort = "medium"
+web_search = "disabled"
+
+[features]
+shell_tool = false
+unified_exec = false
+browser_use = false
+browser_use_external = false
+in_app_browser = false
+computer_use = false
+image_generation = false
+apps = false
+plugins = false
+multi_agent = false
+memories = false
+goals = false
+tool_suggest = false
+skill_search = false
+view_image = false
+multi_agent_v2 = false
+sleep_tool = false
+
+# Same allow-list as the hermes_playwright profile (README "Hermes with Playwright").
+[mcp_servers.playwright]
+command = "node"
+args = ["{ROOT}/vendor/playwright-mcp/node_modules/@playwright/mcp/cli.js", "--headless", "--isolated", "--executable-path", "{CHROMIUM}", "--output-dir", "/tmp/hb-playwright-out"]
+# exec runs headless with approval policy "never", so the allowed tools must be pre-approved.
+default_tools_approval_mode = "approve"
+enabled_tools = ["browser_navigate", "browser_navigate_back", "browser_snapshot", "browser_take_screenshot", "browser_find", "browser_click", "browser_hover", "browser_drag", "browser_type", "browser_fill_form", "browser_press_key", "browser_select_option", "browser_wait_for", "browser_evaluate", "browser_console_messages", "browser_handle_dialog", "browser_tabs", "browser_resize", "browser_emulate_media", "browser_close"]
