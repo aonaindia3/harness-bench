@@ -1,0 +1,16 @@
+{
+  "harness": "codex",
+  "model": null,
+  "tasks_file": "test_small.json",
+  "domain": null,
+  "ids": null,
+  "limit": null,
+  "max_steps": 50,
+  "budget": 900,
+  "include_gdrive": false,
+  "out": "runs/codex-osworld-mac",
+  "no_record": false,
+  "suite": "osworld",
+  "harness_version": "codex-cli 0.163.0",
+  "n_tasks": 36
+}

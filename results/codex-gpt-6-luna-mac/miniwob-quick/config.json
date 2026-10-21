@@ -1,0 +1,12 @@
+{
+  "harness": "codex",
+  "suite": "miniwob-quick",
+  "tasks": null,
+  "trials": 1,
+  "budget": 240,
+  "model": null,
+  "out": null,
+  "harness_version": "codex-cli 0.163.0",
+  "n_tasks": 25,
+  "started": "2026-10-20T20:17:32.946101"
+}
