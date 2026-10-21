@@ -1,0 +1,15 @@
+{
+  "tasks_file": "test_small.json",
+  "domain": null,
+  "ids": null,
+  "limit": null,
+  "harness": "openai_cua",
+  "max_steps": 50,
+  "budget": 900,
+  "include_gdrive": false,
+  "out": "runs/clean-openai_cua-osworld-small",
+  "no_record": false,
+  "suite": "osworld",
+  "harness_version": "bench/cua/osworld_agent.py (Responses API computer tool, gpt-6-luna, effort medium)",
+  "n_tasks": 36
+}

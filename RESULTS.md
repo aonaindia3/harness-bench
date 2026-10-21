@@ -13,7 +13,7 @@ web task, the same 25 MiniWoB++ and 25 WebGames tasks (`*-quick`); OSWorld 50 to
 | **openai_cua**: OpenAI computer tool (Operator's technology), `bench/cua/` | Ander | screenshots only, mouse/keyboard actions on a local Chromium (README "OpenAI computer-use agent") | `openai_cua-gpt-6-luna` |
 
 Hermes runs used medium reasoning effort via ChatGPT Plus; openai_cua used medium effort via the
-API (pay per token: $0.11 for both web suites). The Codex and OpenCode adapters and
+API (pay per token: $0.11 for both web suites, $0.21 for OSWorld). The Codex and OpenCode adapters and
 their settings (login type, reasoning effort, exact tool list) are not in the repo yet; see
 "Reproducibility" below. Recompute the tables with
 `./bench.sh report --compare results/*/*-quick/results.jsonl`.
@@ -24,7 +24,7 @@ their settings (login type, reasoning effort, exact tool list) are not in the re
 |---|---|---|---|---|---|
 | MiniWoB++ quick (25 of 125) | 16/25 (64%) | 15/25 (60%) | 19/25 (76%) | **20/25 (80%)** | **20/25 (80%)** |
 | WebGames quick (25 of 53 base) | 12/25 (48%) | 14/25 (56%) | 15/25 (60%) | 16/25 (64%) | **20/25 (80%)** |
-| OSWorld test_small (36 of 39) | **6/36 (17%)**; mean score 19.4% | n/a (no browser) | not valid (see below) | not run | run in progress |
+| OSWorld test_small (36 of 39) | **6/36 (17%)**; mean score 19.4% | n/a (no browser) | not valid (see below) | not run | **23/36 (64%)**; mean score 69.4% |
 
 MiniWoB / WebGames per task:
 
@@ -36,7 +36,8 @@ MiniWoB / WebGames per task:
 | Timeouts | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 1 |
 | Flagged for cheating | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 1 (false positive, see 4) | 0 / 0 |
 
-Hermes on OSWorld: mean 81 s, 16.8 tool calls and 195k tokens per task; 0 timeouts. "Success" is a
+OSWorld per task: Hermes 81 s, 16.8 tool calls, 195k tokens; openai_cua 66 s, 22.8 screen actions,
+245k tokens. 0 timeouts for either. "Success" is a
 full score (1.0); OSWorld's own metric is the mean score, which also counts one 0.99 partial (vlc).
 
 Reference: the WebGames paper reports ~50% for its best agent and 95.7% for humans on base tasks
@@ -51,42 +52,52 @@ Reference: the WebGames paper reports ~50% for its best agent and 95.7% for huma
    the password is on the final screenshot in each (16 by OCR, 4 by eye), and it has no DOM,
    JavaScript or file access to get it any other way. It is fast on MiniWoB (9 s) but slow on
    WebGames (53 s, 22 actions per task) and cost $0.11 for all 50 tasks.
-2. **OpenCode and Codex lead Hermes on the web suites.** 36/50 (OpenCode) and 34/50 (Codex) against
+2. **On OSWorld the screenshot agent passes 23/36 against Hermes's 6/36, on the same model.** It
+   passed every task Hermes passed plus 17 more, including all of LibreOffice Calc (3/3) and Impress
+   (2/2), GIMP (2/2), Thunderbird (2/2) and VS Code (3/3); multi-app 6/14, VLC 0/2. Both runs use
+   the same runner and OSWorld's own evaluator, which scores the final VM state, so an answer
+   cannot be guessed. Spot checks of new passes match the task: strike-through applied and saved in
+   Impress, `sysstat` installed and `sar -u 1 30` written to the requested file from a terminal, the
+   Thunderbird account removed through its settings. Unlike Hermes it never declared a task
+   impossible; one task failed in OSWorld's own post-task setup ("Postconfig setup failed").
+   The gap (17 tasks) is far larger than the 6-task run-to-run swing seen for Hermes (finding 10).
+3. **OpenCode and Codex lead Hermes on the web suites.** 36/50 (OpenCode) and 34/50 (Codex) against
    29/50 and 28/50 for the two Hermes setups, all on the same model. That gap is larger than
    anything between Hermes's own setups, but it comes from one trial per task; confirm with
    `--trials 3` before ranking. Codex used 2 to 3 times the tokens of the others; OpenCode used about
    the same as Hermes. 22 of 50 tasks were passed by all five harnesses.
-3. **No measurable difference between Hermes's two browser setups.** The totals differ by 1 to 2
+4. **No measurable difference between Hermes's two browser setups.** The totals differ by 1 to 2
    tasks per suite. They disagree on 14 of 50 tasks in both directions.
-4. **Hermes's MCP circuit breaker costs the Playwright setup.** After 3 consecutive failed calls to
+5. **Hermes's MCP circuit breaker costs the Playwright setup.** After 3 consecutive failed calls to
    an MCP server, Hermes blocks it for 60 s (hard-coded). It fired in 3 MiniWoB attempts
    (ascending-numbers, click-checkboxes-soft, click-tab-2), all failures, typically after the model
    passed a button label where Playwright's `browser_click` expects an element ref. Hermes's
    built-in tools have no such pause.
-5. **No cheating in any run.** The WebGames prompt says page-level JavaScript is fine and reading
+6. **No cheating in any run.** The WebGames prompt says page-level JavaScript is fine and reading
    the app's source or internal state is a failure. The Hermes runs were also reviewed by hand. The
    one flag (OpenCode, file-credentials) is the agent trying to open a file the task had it
    download; the check only allows the Hermes download folder, and the attempt failed anyway.
-6. **Text snapshots make some tasks free.** context-breaker hides the password at the bottom of a
+7. **Text snapshots make some tasks free.** context-breaker hides the password at the bottom of a
    huge text box; the four text-based harnesses read it from the page snapshot in one step.
-7. **Downloaded files.** combination-lock and resume-challenge hand the agent a file. The Hermes
+8. **Downloaded files.** combination-lock and resume-challenge hand the agent a file. The Hermes
    setups and OpenCode could not open it and failed both; Codex passed combination-lock (its
    transcripts are not in the release, so how it read the file is not checked); openai_cua passed
    resume-challenge after 180 screen actions (password confirmed on its final screenshot).
-8. **OSWorld: Hermes gives up rather than runs out of budget.** Of 30 failures, 15 were Hermes
+9. **OSWorld: Hermes gives up rather than runs out of budget.** Of 30 failures, 15 were Hermes
    calling `done("FAIL")` itself (median 12 tool calls of a 50-call budget, no timeouts). By app:
    LibreOffice Calc 2/3, Thunderbird 1/2, VS Code 1/3, Chrome 1/4, multi-app 1/14, and 0 on GIMP,
    Impress, Writer, OS and VLC. None of the 36 tasks is an "infeasible" task, so no `FAIL` was right.
-9. **OSWorld varies a lot between runs.** Against an earlier same-setup Hermes run, 6 of the 34
+10. **OSWorld varies a lot between runs.** Against an earlier same-setup Hermes run, 6 of the 34
    shared tasks flipped (4 passes became fails, 2 fails became passes) at similar totals (6 vs 8).
    One trial per task cannot separate harnesses on OSWorld; use 3+.
-10. **Failed by all five:** click-tab-2-medium, draw-circle, file-credentials, robo-check.
+11. **Failed by all five (web):** click-tab-2-medium, draw-circle, file-credentials, robo-check.
 
 ## Reproducibility
 
 - **hermes, hermes_playwright, openai_cua**: adapters, profiles and Playwright pin are in the repo
   (README); full transcripts and screenshots (and for OSWorld screen recordings) are in release
-  `results-2026-10-20`. openai_cua needs an `OPENAI_API_KEY`.
+  `results-2026-10-20`. openai_cua needs an `OPENAI_API_KEY`; on OSWorld run it with
+  `./bench.sh osworld --harness openai_cua`.
 - **codex** (Anusha) and **opencode** (Clara): only `results.jsonl` and `config.json` are in the
   repo. To reproduce or audit them we still need each adapter, its setup (login type, reasoning
   effort, MCP tool allow-list) and the transcripts.
