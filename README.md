@@ -156,6 +156,22 @@ calls do not appear in the `--json` event log; the MCP calls made from it do, an
 the cheat check reads. `default_tools_approval_mode = "approve"` is required because `exec` never
 prompts.
 
+## OpenAI computer-use agent (`--harness openai_cua`)
+
+The technology behind Operator / ChatGPT agent mode, run locally: [`bench/cua/agent.mjs`](bench/cua/agent.mjs)
+loops the Responses API [`computer` tool](https://developers.openai.com/api/docs/guides/tools-computer-use)
+(`gpt-6-luna`, medium effort) over a headless Chromium (same build as the other harnesses,
+1280x720) driven by the Playwright copy from `./setup.sh playwright`. The model sees only
+screenshots and answers with mouse/keyboard actions; it has no DOM, no JavaScript and no address
+bar, so the page from the prompt is opened before the first screenshot. Pending safety checks stop
+the attempt (there is no one to approve them).
+
+Needs an API key with pay-per-token billing (ChatGPT plans don't cover it):
+`OPENAI_API_KEY=... ./bench.sh --harness openai_cua --suite miniwob-quick`. Measured on gpt-6-luna:
+about $0.0005 per MiniWoB task and $0.01 per WebGames task (most input is cached screenshots).
+`OPENAI_CUA_MODEL` / `OPENAI_CUA_EFFORT` change the model and effort. Each attempt keeps its
+screenshots (`attempts/<task>/shot_*.png`) next to the transcript.
+
 ## Adding another harness
 
 Write `bench/adapters/<name>.py` with `run(prompt, workdir, out_dir, budget_s, model=None) -> dict`
