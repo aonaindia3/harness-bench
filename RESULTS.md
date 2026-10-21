@@ -99,6 +99,55 @@ Reference: the WebGames paper reports ~50% for its best agent and 95.7% for huma
    One trial per task cannot separate harnesses on OSWorld; use 3+.
 12. **Failed by every run (web):** click-tab-2-medium, draw-circle, file-credentials, robo-check.
 
+## Why the gap on OSWorld (hermes 6/36 vs openai_cua 23/36)
+
+From the transcripts, action logs and screenshots of the 17 tasks only openai_cua passed. Both
+agents use `gpt-6-luna` and both see screenshots, so this is not "text vs pixels".
+
+**How Hermes failed**
+
+- **It quits (8 of 17).** It called `done("FAIL")` after a median of about 12 of its 50 tool
+  calls. Two were transient environment problems it did not push through (a stalled Miniconda
+  download; apt locked by another process while installing `sysstat`): openai_cua typed
+  essentially the same commands and passed. Four were getting lost in an app's UI (removing a
+  Thunderbird account, exporting contacts, opening the Trash, resizing an Impress image). In one it
+  misjudged the screen ("couldn't identify a soccer-club to-do list" with the list on the open
+  slide; openai_cua struck through the two lines in 34 s).
+- **It stops half-way and reports success (9 of 17).** Twice its own final message says the work is
+  unfinished while it called `done("DONE")` (GIMP: "the PNG export-options dialog is still open";
+  Chrome: "I couldn't complete the desktop shortcut"). The rest were wrong without it noticing,
+  often through a fragile shortcut: it retyped a `find` result by hand as `/home/user/data3/...`
+  instead of `Data3`; it rewrote the whole VS Code user settings file to change one setting.
+- **It clicks less precisely.** 25% of its consecutive clicks land within 15 px of the previous one
+  (a re-click), against 7% for openai_cua (a proxy for misses, not a direct measure). Hermes
+  downscales every MCP screenshot from 1920x1080 to 1568x882 (JPEG, `_EMBED_MAX_DIMENSION` in its
+  `tools/vision_tools.py`) and tells the model to multiply coordinates by 1.22.
+
+Ruled out: image quality (re-running the same downscale on its secret.docx screenshot, `Data3`
+is clearly legible), tool errors (0.2 errored results per task) and not looking (6.5 screenshots
+per task).
+
+**What the computer-use setup did better**
+
+Design (any harness could copy these):
+- **A screenshot comes back with every action batch**, so one model call is one look-act cycle.
+  Hermes asks for screenshots with a separate tool call (245 `execute` vs 233 `screenshot`
+  calls), two model turns per cycle; on the 6 tasks both passed it took 46 s per task vs 22 s.
+- **No tool-discovery overhead.** 63 of Hermes's 606 tool calls were `tool_search` /
+  `tool_describe` before acting.
+- **Structured actions in screen pixels** (click x,y; type; keypress; wait) instead of writing
+  pyautogui code against a downscaled image.
+
+Behaviour (harness instructions or model training; these logs cannot separate the two):
+- **It persists.** About 11 look-act cycles per task against Hermes's 6.5, `wait` used 177 times,
+  and it never declared a task impossible.
+- **It works the UI like a person.** It zoomed in (Ctrl++) 12 times to read small UI; Hermes never
+  did, and instead took 27 shell shortcuts through `subprocess`, some ending in the wrong state.
+  Saving was not the difference (Ctrl+S 15 vs 14 times).
+
+The clean test of design vs training would be the same loop with the same actions exposed as plain
+function tools instead of the native `computer` tool (not run).
+
 ## Reproducibility
 
 - **hermes, hermes_playwright, openai_cua**: adapters, profiles and Playwright pin are in the repo
