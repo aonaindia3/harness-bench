@@ -1,0 +1,12 @@
+{
+  "harness": "openai_cua",
+  "suite": "webgames-quick",
+  "tasks": null,
+  "trials": 1,
+  "budget": 240,
+  "model": null,
+  "out": "runs/clean-openai_cua-webgames-quick",
+  "harness_version": "bench/cua/agent.mjs (Responses API computer tool, gpt-6-luna, effort medium)",
+  "n_tasks": 25,
+  "started": "2026-10-21T15:07:54.777257"
+}
