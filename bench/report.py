@@ -10,6 +10,7 @@ import json
 import statistics
 import sys
 from collections import defaultdict
+from pathlib import Path
 
 
 def _mean(xs):
@@ -29,7 +30,7 @@ def passed(r: dict) -> bool:
 def summarize(rows: list[dict]) -> str:
     groups = defaultdict(list)
     for r in rows:
-        groups[(r["harness"], r.get("model") or "default", r["suite"])].append(r)
+        groups[(r.get("_run") or r["harness"], r.get("model") or "default", r["suite"])].append(r)
     lines = ["| harness | model | suite | attempts | success | mean time (s) | median time (s) "
              "| mean tool calls | mean tokens | timeouts | suspect |",
              "|---|---|---|---|---|---|---|---|---|---|---|"]
@@ -59,7 +60,9 @@ def per_task(rows: list[dict]) -> str:
 
 
 def _who(r: dict) -> str:
-    return f"{r['harness']} / {r.get('model') or 'default'}"
+    # Rows read from results/<name>/<suite>/ are labelled by <name>, so two runs of the same
+    # harness and model (e.g. a replication) stay separate columns.
+    return r.get("_run") or f"{r['harness']} / {r.get('model') or 'default'}"
 
 
 def compare(rows: list[dict]) -> str:
@@ -92,7 +95,12 @@ def compare(rows: list[dict]) -> str:
 if __name__ == "__main__":
     args = sys.argv[1:]
     mode = args.pop(0) if args and args[0] == "--compare" else None
-    rows = [json.loads(l) for p in args for l in open(p) if l.strip()]
+    rows = []
+    for p in args:
+        run = Path(p).parent.parent
+        for l in open(p):
+            if l.strip():
+                rows.append({**json.loads(l), **({"_run": run.name} if run.parent.name == "results" else {})})
     if mode:
         print(compare(rows))
     else:

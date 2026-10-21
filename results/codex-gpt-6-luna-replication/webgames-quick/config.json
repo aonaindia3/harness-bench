@@ -1,0 +1,12 @@
+{
+  "harness": "codex",
+  "suite": "webgames-quick",
+  "tasks": null,
+  "trials": 1,
+  "budget": 240,
+  "model": null,
+  "out": "runs/clean-codex-webgames-quick",
+  "harness_version": "codex-cli 0.162.0-alpha.17.2",
+  "n_tasks": 25,
+  "started": "2026-10-20T20:26:50.513796"
+}
