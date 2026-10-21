@@ -1,0 +1,12 @@
+{
+  "harness": "opencode",
+  "suite": "webgames-quick",
+  "tasks": null,
+  "trials": 1,
+  "budget": 240,
+  "model": "openai/gpt-6-luna",
+  "out": null,
+  "harness_version": "1.19.3",
+  "n_tasks": 25,
+  "started": "2026-10-20T19:40:41.821732"
+}
