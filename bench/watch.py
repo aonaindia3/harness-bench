@@ -62,7 +62,7 @@ def _brief(name: str, inp) -> str:
     return s[:400] + ("…" if len(s) > 400 else "")
 
 
-def _events(transcript: Path) -> tuple[list[dict], bool]:
+def _events(transcript: Path, limit: int | None = MAX_EVENTS) -> tuple[list[dict], bool]:
     events: list[dict] = []
     finished = False
     if not transcript.exists():
@@ -104,7 +104,8 @@ def _events(transcript: Path) -> tuple[list[dict], bool]:
                 events[-1]["kind"] = "final"
     for e in events:
         e["text"] = e["text"].strip()
-    return [e for e in events if e["text"]][-MAX_EVENTS:], finished
+    events = [e for e in events if e["text"]]
+    return (events[-limit:] if limit else events), finished
 
 
 def run_state(run: Path) -> dict:

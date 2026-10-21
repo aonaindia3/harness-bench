@@ -26,6 +26,9 @@ touches the public web or your own Chrome profile.
 python3 -m bench.watch                                # live view at http://127.0.0.1:8765
 ```
 
+`python3 -m bench.replay runs/<A> runs/<B>` (http://127.0.0.1:8766) replays two OSWorld runs side by
+side: both screen recordings per task with each agent's steps; click a step to seek its video.
+
 `bench.watch` shows each active run's progress, the current task and its goal, and a live feed
 of what the agent says and which tools it calls; for OSWorld it embeds the VM desktop view-only.
 
