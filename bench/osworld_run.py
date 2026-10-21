@@ -1,9 +1,11 @@
-"""Run OSWorld tasks against Hermes (run with vendor/OSWorld/.venv/bin/python, via ./bench.sh osworld).
+"""Run OSWorld tasks against a harness (run with vendor/OSWorld/.venv/bin/python, via ./bench.sh osworld).
 
     ./bench.sh osworld --tasks-file test_small.json [--domain os] [--limit 5] [--max-steps 50]
+    ./bench.sh osworld --harness openai_cua ...      # OpenAI computer-use agent (needs OPENAI_API_KEY)
 
-Per task: DesktopEnv.reset(task) -> Hermes drives the VM through bench/osworld_mcp.py ->
-DesktopEnv.evaluate(). Rows use the same results.jsonl schema as bench/run.py. Each task's screen
+Per task: DesktopEnv.reset(task) -> the harness drives the VM -> DesktopEnv.evaluate(). Hermes
+uses the tools in bench/osworld_mcp.py; openai_cua (bench/cua/osworld_agent.py) sends the
+computer tool's actions as pyautogui code through the same controller. Rows use the same results.jsonl schema as bench/run.py. Each task's screen
 is recorded to attempts/<task>/recording.mp4 (OSWorld's own recorder; --no-record turns it off).
 """
 
@@ -26,6 +28,7 @@ os.chdir(OSW)  # DesktopEnv resolves ./docker_vm_data and ./cache relative to cw
 from desktop_env.desktop_env import DesktopEnv  # noqa: E402
 
 from bench.adapters.hermes import HERMES, parse_transcript, version  # noqa: E402
+from bench.cua import osworld_agent  # noqa: E402
 from bench.report import summarize  # noqa: E402
 
 STATE = ROOT / "runs" / ".osworld_current.json"
@@ -73,13 +76,33 @@ def load_examples(tasks_file: str, domain: str | None, limit: int | None, ids: l
     return out[:limit] if limit else out
 
 
+def run_hermes(ex: dict, attempt: Path, done_file: Path, env, args) -> tuple[int | None, bool]:
+    STATE.write_text(json.dumps({"vm_ip": env.vm_ip, "server_port": env.server_port,
+                                 "done_file": str(done_file), "action_log": str(attempt / "actions.jsonl")}))
+    cmd = [HERMES, "-p", PROFILE, "chat", "-q", PROMPT.format(instruction=ex["instruction"]),
+           "--format", "stream-json", "-t", "osworld", "--ignore-rules", "--source", "tool",
+           "--run-budget", str(args.budget), "--max-turns", str(args.max_steps)]
+    timed_out = False
+    with (attempt / "transcript.jsonl").open("w") as so, (attempt / "stderr.log").open("w") as se:
+        proc = subprocess.Popen(cmd, cwd=attempt, stdout=so, stderr=se, stdin=subprocess.DEVNULL)
+        try:
+            proc.wait(timeout=args.budget + 120)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            proc.kill()
+            proc.wait()
+    return proc.returncode, timed_out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tasks-file", default="test_small.json")
     ap.add_argument("--domain")
     ap.add_argument("--ids", help="comma-separated task ids")
     ap.add_argument("--limit", type=int)
-    ap.add_argument("--max-steps", type=int, default=50, help="Hermes --max-turns (tool iterations)")
+    ap.add_argument("--harness", choices=["hermes", "openai_cua"], default="hermes")
+    ap.add_argument("--max-steps", type=int, default=50,
+                    help="tool iterations (Hermes --max-turns; openai_cua: computer-tool turns)")
     ap.add_argument("--budget", type=int, default=900, help="per-task wall-clock budget, seconds")
     ap.add_argument("--include-gdrive", action="store_true", help="needs Google Drive client secrets")
     ap.add_argument("--out", help="output dir; re-using one resumes it (finished tasks are skipped)")
@@ -90,10 +113,14 @@ def main():
                              args.ids.split(",") if args.ids else None, args.include_gdrive)
     # cwd is vendor/OSWorld by now, so a relative --out is taken relative to the repo root; the MCP
     # server runs elsewhere and needs absolute paths in the state file.
-    out = ROOT / args.out if args.out else ROOT / "runs" / f"{datetime.now():%Y%m%d-%H%M%S}-hermes-osworld"
+    out = ROOT / args.out if args.out else ROOT / "runs" / f"{datetime.now():%Y%m%d-%H%M%S}-{args.harness}-osworld"
     out.mkdir(parents=True, exist_ok=True)
-    (out / "config.json").write_text(json.dumps({**vars(args), "suite": "osworld", "harness": "hermes",
-                                                 "harness_version": version(), "n_tasks": len(examples)}, indent=2))
+    if args.harness == "openai_cua" and not os.environ.get("OPENAI_API_KEY"):
+        raise SystemExit("openai_cua needs OPENAI_API_KEY")
+    harness_version = version() if args.harness == "hermes" else (
+        f"bench/cua/osworld_agent.py (Responses API computer tool, {osworld_agent.MODEL}, effort {osworld_agent.EFFORT})")
+    (out / "config.json").write_text(json.dumps({**vars(args), "suite": "osworld", "harness_version": harness_version,
+                                                 "n_tasks": len(examples)}, indent=2))
     results_path = out / "results.jsonl"
     if results_path.exists():
         finished = {json.loads(l)["task"] for l in results_path.read_text().splitlines() if l.strip()}
@@ -109,7 +136,7 @@ def main():
             try:
                 env.reset(task_config=ex)
             except Exception as e:  # a task whose setup can't run counts as a failure, not a crash
-                row = {"suite": "osworld", "task": f"{dom}/{ex['id']}", "trial": 0, "harness": "hermes",
+                row = {"suite": "osworld", "task": f"{dom}/{ex['id']}", "trial": 0, "harness": args.harness,
                        "model": None, "success": False, "score": 0.0, "detail": f"setup failed: {e}"[:500],
                        "wall_s": 0.0, "exit_code": None, "timed_out": False, "instruction": ex["instruction"],
                        "final_text": "", "tool_calls": 0, "tools": {}, "tokens_total": None}
@@ -120,21 +147,12 @@ def main():
             time.sleep(60)  # same settle time as OSWorld's lib_run_single
             recording = not args.no_record and _try(env.controller.start_recording)
             done_file = attempt / "done.txt"
-            STATE.write_text(json.dumps({"vm_ip": env.vm_ip, "server_port": env.server_port,
-                                         "done_file": str(done_file), "action_log": str(attempt / "actions.jsonl")}))
-            cmd = [HERMES, "-p", PROFILE, "chat", "-q", PROMPT.format(instruction=ex["instruction"]),
-                   "--format", "stream-json", "-t", "osworld", "--ignore-rules", "--source", "tool",
-                   "--run-budget", str(args.budget), "--max-turns", str(args.max_steps)]
             t0 = time.monotonic()
-            timed_out = False
-            with (attempt / "transcript.jsonl").open("w") as so, (attempt / "stderr.log").open("w") as se:
-                proc = subprocess.Popen(cmd, cwd=attempt, stdout=so, stderr=se, stdin=subprocess.DEVNULL)
-                try:
-                    proc.wait(timeout=args.budget + 120)
-                except subprocess.TimeoutExpired:
-                    timed_out = True
-                    proc.kill()
-                    proc.wait()
+            if args.harness == "openai_cua":
+                agent = osworld_agent.run(env.controller, ex["instruction"], attempt, args.budget, args.max_steps)
+                timed_out, exit_code = agent["timed_out"], agent["exit_code"]
+            else:
+                exit_code, timed_out = run_hermes(ex, attempt, done_file, env, args)
             wall = time.monotonic() - t0
             status = done_file.read_text().strip() if done_file.exists() else None
             env.step("FAIL" if status == "FAIL" else "DONE", pause=0)
@@ -147,10 +165,10 @@ def main():
                 score, err = 0.0, f"evaluate error: {e}"
             res = parse_transcript(attempt / "transcript.jsonl")
             res.pop("tool_inputs", None)
-            row = {"suite": "osworld", "task": f"{dom}/{ex['id']}", "trial": 0, "harness": "hermes",
+            row = {"suite": "osworld", "task": f"{dom}/{ex['id']}", "trial": 0, "harness": args.harness,
                    "model": None, "success": score >= 1.0, "score": score,
                    "detail": err or (f"agent said {status}" if status else "agent never called done"),
-                   "wall_s": round(wall, 1), "exit_code": proc.returncode, "timed_out": timed_out,
+                   "wall_s": round(wall, 1), "exit_code": exit_code, "timed_out": timed_out,
                    "instruction": ex["instruction"], **res}
             with results_path.open("a") as f:
                 f.write(json.dumps(row) + "\n")

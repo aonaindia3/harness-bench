@@ -172,6 +172,10 @@ about $0.0005 per MiniWoB task and $0.01 per WebGames task (most input is cached
 `OPENAI_CUA_MODEL` / `OPENAI_CUA_EFFORT` change the model and effort. Each attempt keeps its
 screenshots (`attempts/<task>/shot_*.png`) next to the transcript.
 
+For OSWorld: `OPENAI_API_KEY=... ./bench.sh osworld --harness openai_cua` ([`bench/cua/osworld_agent.py`](bench/cua/osworld_agent.py)).
+Screenshots are full 1920x1080; actions run as pyautogui code through OSWorld's controller, the same
+path Hermes's `execute` tool uses. A final message starting with FAIL becomes OSWorld's FAIL action.
+
 ## Adding another harness
 
 Write `bench/adapters/<name>.py` with `run(prompt, workdir, out_dir, budget_s, model=None) -> dict`
