@@ -44,6 +44,12 @@ timeout, the final answer, and a `suspect` flag when the agent's tool inputs tou
 internals (MiniWoB's `core.*`/`WOB_*`, the WebGames JS bundle, React component state or source)
 instead of using the page.
 The report counts a suspect pass as a failure.
+OSWorld rows also say how the attempt **ended** (`bench.report.ended`): `done` / `fail` (what the
+agent declared), `steps` (step budget used up), `time` (timed out), `safety` (openai_cua stopped on
+a safety check), `error` (crashed without declaring), `none` (stopped without declaring) or `env`
+(OSWorld's own setup or evaluator broke). `report --compare` tallies them per harness, plus how
+often the agent said done on a task the evaluator failed. API agents also record `served_model`,
+the model the API reports having run.
 Full transcripts are in `runs/<run>/attempts/<task>/transcript.jsonl`; OSWorld attempts also keep
 the agent's screenshots, an action log and a screen recording. `runs/` is not in git; see
 [Comparing harnesses](#comparing-harnesses) for sharing.
@@ -66,6 +72,60 @@ the agent's screenshots, an action log and a screen recording. `runs/` is not in
   passed to OSWorld as its FAIL action (that is how infeasible tasks are scored).
   Default 50 tool iterations and 900 s per task. Each task's screen is recorded to
   `attempts/<task>/recording.mp4` with OSWorld's own recorder (`--no-record` to skip).
+  `--trial N` labels the rows (the report shows per-trial totals); use one `--out` per trial.
+  Re-using an `--out` resumes it: finished tasks are skipped, an unfinished one starts clean.
+- **Usage limits**: an attempt that ends on a plan or API usage limit (`bench/limits.py` reads the
+  agent's own error output, never tool results) is not scored. The run saves the message to
+  `attempts/<task>/limited.txt` and exits 75; resume it with the same `--out` once the limit
+  resets. `./bench.sh osworld-queue hermes:1 openai_cua:1 ...` runs jobs back to back into
+  `runs/osw-<harness>-t<trial>`, sets aside a limited harness's jobs and gives them one more pass
+  at the end (arguments after `--` go to every run).
+
+## Test plan: Fair A case study (A5, computer-use agents)
+
+The case study asks which parts of a computer-use agent (understanding, state, policy,
+generation, knowing when it's done) are explicit, latent in the model, or missing, and where a
+failure shows how it is built. The benchmark is evidence for that, so the goal is **why** a
+setup scores what it does, not the highest score: one model (`gpt-6-luna`, medium effort)
+throughout, only the harness changes.
+
+Everything runs on OSWorld `test_small.json` (36 tasks) on this machine, with the limits in
+[Comparing harnesses](#comparing-harnesses). The web suites, full OSWorld (369 tasks) and
+OSWorld 2.0 are out of scope: OSWorld 2.0's long tasks would put every harness near 0 on this
+model, so it could not separate them.
+
+**Must run**
+
+| # | Run | Trials | Status | What it answers |
+|---|---|---|---|---|
+| 1 | `hermes` (four MCP tools) vs `openai_cua` (native `computer` tool) | 3 each | trial 0 done (6/36, 23/36: `runs/clean-*-osworld-small`) | Is the harness gap (the seam) bigger than run-to-run noise? |
+| 2 | `openai_fn`: the `openai_cua` loop with the same actions as a plain function tool | 3 | built, not run | Is the gap the trained action interface (latent in the model) or the loop design (copyable by any harness)? |
+
+**Optional** (if the ChatGPT Plus limit allows)
+
+| # | Run | Trials | Status | What it answers |
+|---|---|---|---|---|
+| 3 | Codex with the same four MCP tools as Hermes | 1 (3 if time) | not built (`osworld_run.py` has no Codex hook) | Is 6/36 a Hermes quirk or typical of general agent harnesses? |
+| 4 | Hermes with a screenshot returned after every `execute` | 1 | not built | Does one look per action (the `openai_cua` loop) close the gap? |
+
+Runs 1 (`openai_cua` half) and 2 bill the API key; Hermes and Codex use the ChatGPT Plus login,
+whose usage limit is the bottleneck (a Hermes OSWorld task is about 195k tokens). Finish a trial
+for every setup before starting the next, so a limit pause delays a whole trial rather than one
+setup. About 14 h of machine time for runs 1–2, 18–22 h with 3–4. In that order:
+
+```bash
+OPENAI_API_KEY=... ./bench.sh osworld-queue hermes:1 openai_cua:1 openai_fn:0 hermes:2 openai_cua:2 openai_fn:1 openai_fn:2
+./bench.sh report --compare runs/clean-*-osworld-small/results.jsonl runs/osw-*/results.jsonl
+```
+
+**Record from every run**, beyond the success rate:
+
+- How each failed task ended: `done("DONE")` but wrong, `done("FAIL")` early, or out of steps or
+  time (evidence that nothing checks whether the task is done).
+- Environment failures (OSWorld setup or postconfig errors, live sites), kept apart from agent
+  failures.
+- Steps, time and tokens per task.
+- The model each transcript reports, to confirm it is `gpt-6-luna` throughout.
 
 ## Hermes setup
 
@@ -179,6 +239,12 @@ For OSWorld: `OPENAI_API_KEY=... ./bench.sh osworld --harness openai_cua` ([`ben
 Screenshots are full 1920x1080; actions run as pyautogui code through OSWorld's controller, the same
 path Hermes's `execute` tool uses. A final message starting with FAIL becomes OSWorld's FAIL action.
 
+`--harness openai_fn` is the same agent with one change: the actions come through an ordinary
+function tool named `computer` (same action objects, batched the same way, a full-resolution
+screenshot returned after each call) instead of the native computer tool. Comparing the two
+separates what the trained action interface contributes from what the loop design does. The
+function version has no safety checks, since those come with the native tool.
+
 ## Adding another harness
 
 Write `bench/adapters/<name>.py` with `run(prompt, workdir, out_dir, budget_s, model=None) -> dict`
@@ -188,9 +254,13 @@ Return `tool_inputs` (every tool call's input as a string): the cheat check read
 harness that leaves them out is never flagged. Return `model` and expose `version()` if you can;
 both end up in the results so the comparison table can tell runs apart.
 
-`bench/osworld_run.py` currently launches Hermes; for another harness, change the command it runs
-and keep the rest (the same prompt, the four tools from `bench/osworld_mcp.py`, the 50-step and
-900 s limits, OSWorld's evaluator).
+For OSWorld, add an entry to `HARNESSES` in `bench/osworld_run.py`: a `run(ex, attempt, env, args)`
+that drives the VM for one task (see `run_hermes`), a `version()` and a transcript parser (see the
+`Harness` docstring). Keep the rest the same: the prompt, the four tools from
+`bench/osworld_mcp.py`, the 50-step and 900 s limits, OSWorld's evaluator. If the harness's usage
+limit errors aren't caught by `bench/limits.py`, add their wording to its `PATTERN`.
+
+Tests (no VM or extra packages needed): `python3 -m unittest discover tests`.
 
 ## Comparing harnesses
 
@@ -200,7 +270,7 @@ you change the model).
 | | Setting |
 |---|---|
 | Tasks | `miniwob-quick`, `webgames-quick` (fixed seed, same 25 for everyone), OSWorld `test_small.json` (36; 3 Google Drive tasks skipped) |
-| Trials | 1 per task (use `--trials 3` for tighter numbers, and report it) |
+| Trials | 1 per task (use `--trials 3` for tighter numbers, and report it; OSWorld: one run per trial with `--trial N`) |
 | Limits | web: 240 s per attempt; OSWorld: 50 tool iterations, 900 s |
 | Tools | web: browser tools only, no terminal/file/web-search tools (Hermes: built-in browser or the Playwright allow-list above); OSWorld: only the four MCP tools |
 | Isolation | fresh session per attempt, no memory, skills or rules carried between attempts |
