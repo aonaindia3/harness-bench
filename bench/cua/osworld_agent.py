@@ -109,17 +109,20 @@ def pyautogui_code(a: dict) -> str:
     raise ValueError(f"unknown action {t}")
 
 
+REQUEST_TIMEOUT_S = 120  # one hung request must not eat the task's whole budget
+
+
 def _post(body: dict, headers: dict, deadline: float) -> dict:
-    """POST /v1/responses, retrying rate limits, server errors, network blips and non-JSON replies
-    (a gateway error page). Quota errors are not retried: they won't clear within a task, and the
-    error text lets bench.limits recognize the attempt as unscored."""
+    """POST /v1/responses, retrying rate limits, server errors, network blips, timeouts and
+    non-JSON replies (a gateway error page). Quota errors are not retried: they won't clear within
+    a task, and the error text lets bench.limits recognize the attempt as unscored."""
     for n in range(4):
         last = n == 3
         try:
             r = requests.post("https://api.openai.com/v1/responses", headers=headers, json=body,
-                              timeout=max(10, deadline - time.monotonic()))
+                              timeout=max(10, min(REQUEST_TIMEOUT_S, deadline - time.monotonic())))
             d = r.json()
-        except (requests.ConnectionError, ValueError):
+        except (requests.ConnectionError, requests.Timeout, ValueError):
             if last:
                 raise
             time.sleep(2 * 2 ** n)

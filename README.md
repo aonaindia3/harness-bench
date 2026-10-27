@@ -79,7 +79,13 @@ the agent's screenshots, an action log and a screen recording. `runs/` is not in
   `attempts/<task>/limited.txt` and exits 75; resume it with the same `--out` once the limit
   resets. `./bench.sh osworld-queue hermes:1 openai_cua:1 ...` runs jobs back to back into
   `runs/osw-<harness>-t<trial>`, sets aside a limited harness's jobs and gives them one more pass
-  at the end (arguments after `--` go to every run).
+  at the end (arguments after `--` go to every run). For runs that must outlive the terminal or
+  the session that started them, run the queue as a user service:
+  `systemd-run --user --unit=osworld-queue --working-directory=$PWD ./bench.sh osworld-queue ...`
+  (`systemctl --user status osworld-queue`; `nohup` and `setsid` were not enough here).
+- **Replaced attempts**: an attempt lost to infrastructure (e.g. a hung API request) can be rerun
+  by moving its row to `replaced-rows.jsonl` (with the reason) and its folder to
+  `attempts-replaced/`, then resuming the run. Report it alongside the results.
 
 ## Test plan: Fair A case study (A5, computer-use agents)
 
