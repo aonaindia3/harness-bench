@@ -49,14 +49,14 @@ KEYS = {"ENTER": "enter", "RETURN": "enter", "ESC": "esc", "ESCAPE": "esc", "TAB
 # objects, so pyautogui_code() runs both, and one call carries a batch, as computer_call does.
 _POINT = {"type": "object", "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}},
           "required": ["x", "y"]}
+ACTION_TYPES = ["click", "double_click", "move", "scroll", "drag", "type", "keypress", "wait", "screenshot"]
 FUNCTION_TOOL = {
     "type": "function", "name": "computer", "strict": False,
     "description": "Act on the screen. Runs the actions in order, then returns a new screenshot "
                    "(1920x1080; coordinates are screen pixels).",
     "parameters": {"type": "object", "required": ["actions"], "properties": {"actions": {
         "type": "array", "items": {"type": "object", "required": ["type"], "properties": {
-            "type": {"type": "string", "enum": ["click", "double_click", "move", "scroll", "drag", "type",
-                                                "keypress", "wait", "screenshot"]},
+            "type": {"type": "string", "enum": ACTION_TYPES},
             "x": {"type": "integer"}, "y": {"type": "integer"},
             "button": {"type": "string", "enum": ["left", "right", "middle"]},
             "scroll_x": {"type": "integer", "description": "pixels"},
@@ -212,16 +212,27 @@ def run(controller, instruction: str, attempt: Path, budget_s: int, max_steps: i
                     safety_check, steps_exhausted = True, False
                     emit({"type": "safety_check", "checks": call["pending_safety_checks"]})
                     raise RuntimeError(f"pending safety check: {json.dumps(call['pending_safety_checks'])[:300]}")
+                error = None
                 if native:
                     actions = call.get("actions", [])
                 else:
                     try:
                         actions = json.loads(call.get("arguments") or "{}").get("actions") or []
-                    except ValueError:
-                        actions = []
-                for a in actions:
-                    emit({"type": "tool_use", "name": f"computer.{a.get('type')}", "input": a})
-                    code = pyautogui_code(a)
+                    except (ValueError, AttributeError):
+                        actions, error = [], "the arguments must be a JSON object with an actions array"
+                for n, a in enumerate(actions, 1):
+                    emit({"type": "tool_use", "name": f"computer.{a.get('type') if isinstance(a, dict) else '?'}",
+                          "input": a})
+                    try:
+                        code = pyautogui_code(a)
+                    except (ValueError, KeyError, TypeError, AttributeError) as e:
+                        if native:  # the API enforces the native tool's action format
+                            raise
+                        # A function tool's schema is a request, not a guarantee: the model can send an
+                        # action that doesn't exist (seen: right_click). Tell it, as a harness would.
+                        error = (f"action {n} {json.dumps(a)[:120]} is invalid ({e!r}); it and the actions "
+                                 f"after it were not run. Valid types: {', '.join(ACTION_TYPES)}")
+                        break
                     with (attempt / "actions.jsonl").open("a") as f:
                         f.write(json.dumps({"t": time.time(), "action": a, "code": code}) + "\n")
                     if code != "pass":
@@ -232,9 +243,11 @@ def run(controller, instruction: str, attempt: Path, budget_s: int, max_steps: i
                                     "output": {"type": "computer_screenshot", "image_url": screenshot(),
                                                "detail": "original"}})
                 else:
-                    outputs.append({"type": "function_call_output", "call_id": call["call_id"],
-                                    "output": [{"type": "input_image", "image_url": screenshot(),
-                                                "detail": "original"}]})
+                    content = [{"type": "input_image", "image_url": screenshot(), "detail": "original"}]
+                    if error:
+                        emit({"type": "tool_result", "name": "computer", "is_error": True, "output": error})
+                        content.insert(0, {"type": "input_text", "text": f"Error: {error}"})
+                    outputs.append({"type": "function_call_output", "call_id": call["call_id"], "output": content})
             body = {**body, "input": outputs, "previous_response_id": d["id"]}
     except Exception as e:
         exit_code, steps_exhausted = 1, False

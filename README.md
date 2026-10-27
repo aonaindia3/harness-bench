@@ -120,7 +120,7 @@ for every setup before starting the next, so a limit pause delays a whole trial 
 setup. About 14 h of machine time for runs 1–2, 18–22 h with 3–4. In that order:
 
 ```bash
-OPENAI_API_KEY=... ./bench.sh osworld-queue hermes:1 openai_cua:1 openai_fn:0 hermes:2 openai_cua:2 openai_fn:1 openai_fn:2
+OPENAI_API_KEY=... ./bench.sh osworld-queue hermes:1 openai_cua:1 openai_fn:0 openai_fn:1 hermes:2 openai_cua:2 openai_fn:2
 ./bench.sh report --compare runs/clean-*-osworld-small/results.jsonl runs/osw-*/results.jsonl
 ```
 

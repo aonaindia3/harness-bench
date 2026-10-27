@@ -65,6 +65,20 @@ def _try(fn) -> bool:
         return False
 
 
+def with_retries(fn, what: str, tries: int):
+    """Run fn, retrying after a pause. For environment steps only (starting the VM, resetting it
+    to a task): the agent hasn't run yet, so a retry can't change its score. A VM that boots slowly
+    (laptop on battery, memory pressure) misses OSWorld's fixed 300 s readiness window."""
+    for n in range(1, tries + 1):
+        try:
+            return fn()
+        except Exception as e:
+            if n == tries:
+                raise
+            print(f"{what} failed ({str(e)[:120]}); retrying ({n}/{tries - 1})", flush=True)
+            time.sleep(30)
+
+
 def needs_gdrive(ex: dict) -> bool:
     return "googledrive" in json.dumps(ex.get("config", [])) + json.dumps(ex.get("evaluator", {}))
 
@@ -179,8 +193,8 @@ def main():
         examples = [(d, ex) for d, ex in examples if f"{d}/{ex['id']}" not in finished]
         print(f"resuming: {len(finished)} finished, {len(examples)} to go")
 
-    env = DesktopEnv(provider_name="docker", os_type="Ubuntu", action_space="pyautogui",
-                     headless=True, require_a11y_tree=False)
+    env = with_retries(lambda: DesktopEnv(provider_name="docker", os_type="Ubuntu", action_space="pyautogui",
+                                          headless=True, require_a11y_tree=False), "starting the VM", tries=3)
     try:
         for i, (dom, ex) in enumerate(examples, 1):
             attempt = out / "attempts" / f"{dom}__{ex['id']}"
@@ -190,7 +204,7 @@ def main():
             attempt.mkdir(parents=True)
             task = f"{dom}/{ex['id']}"
             try:
-                env.reset(task_config=ex)
+                with_retries(lambda: env.reset(task_config=ex), f"setup of {task}", tries=2)
             except Exception as e:  # a task whose setup can't run counts as a failure, not a crash
                 row = {"suite": "osworld", "task": task, "trial": args.trial, "harness": args.harness,
                        "model": None, "success": False, "score": 0.0, "detail": f"setup failed: {e}"[:500],
