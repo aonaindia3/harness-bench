@@ -1,0 +1,19 @@
+{
+  "harness": "codex",
+  "suite": "webgames-all",
+  "tasks": null,
+  "trials": 3,
+  "budget": 240,
+  "model": null,
+  "out": null,
+  "harness_version": "codex-cli 0.163.0",
+  "n_tasks": 150,
+  "started": "2026-10-27T16:05:46.331052",
+  "merged_from": [
+    "runs/20261027-160546-codex-webgames-all",
+    "runs/20261027-160546-codex-webgames-all",
+    "runs/codex-webgames-all-t1-rest",
+    "runs/codex-webgames-all-t2"
+  ],
+  "note": "Run 2 was interrupted after 47 tasks and finished in a second run; run 3 ran separately."
+}
