@@ -1,0 +1,13 @@
+{
+  "harness": "hermes",
+  "suite": "webgames-all",
+  "tasks": null,
+  "trials": 1,
+  "budget": 240,
+  "model": "openai/gpt-6-luna",
+  "out": "runs/20261028-hermes-webgames-all-luna-run3",
+  "resume": true,
+  "harness_version": "Hermes Agent v0.22.5 (2026.9.24) \u00b7 stable \u00b7 local bf0203a794a0",
+  "n_tasks": 150,
+  "started": "2026-10-28T12:46:49.274239"
+}
