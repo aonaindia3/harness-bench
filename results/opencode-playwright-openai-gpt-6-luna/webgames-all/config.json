@@ -1,0 +1,17 @@
+{
+  "harness": "opencode-playwright",
+  "suite": "webgames-all",
+  "tasks": null,
+  "trials": 1,
+  "budget": 240,
+  "model": "openai/gpt-6-luna",
+  "out": "runs/opencode-playwright-webgames-all-run-6657892",
+  "harness_version": "1.19.3",
+  "n_tasks": 150,
+  "started": "2026-10-28T16:17:39.398694",
+  "merged_from": [
+    "runs/opencode-playwright-webgames-all-run-6657865",
+    "runs/opencode-playwright-webgames-all-run-6657891",
+    "runs/opencode-playwright-webgames-all-run-6657892"
+  ]
+}
