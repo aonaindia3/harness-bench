@@ -1,0 +1,21 @@
+{
+  "tasks_file": "test_small.json",
+  "domain": null,
+  "ids": null,
+  "limit": null,
+  "harness": "hermes_autoshot",
+  "max_steps": 50,
+  "budget": 900,
+  "include_gdrive": false,
+  "out": null,
+  "no_record": false,
+  "suite": "osworld",
+  "harness_version": "Hermes Agent v0.22.2 (2026.9.24) \u00b7 stable \u00b7 local d923a5eb487a (execute also returns a screenshot)",
+  "n_tasks": 36,
+  "trials": 3,
+  "merged_from": [
+    "runs/osw-hermes_autoshot-t0",
+    "runs/osw-hermes_autoshot-t1",
+    "runs/osw-hermes_autoshot-t2"
+  ]
+}

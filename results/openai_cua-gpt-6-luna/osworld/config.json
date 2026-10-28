@@ -7,9 +7,15 @@
   "max_steps": 50,
   "budget": 900,
   "include_gdrive": false,
-  "out": "runs/clean-openai_cua-osworld-small",
+  "out": null,
   "no_record": false,
   "suite": "osworld",
-  "harness_version": "bench/cua/osworld_agent.py (Responses API computer tool, gpt-6-luna, effort medium)",
-  "n_tasks": 36
+  "harness_version": "bench/cua/osworld_agent.py (Responses API, computer tool, gpt-6-luna, effort medium)",
+  "n_tasks": 36,
+  "trials": 3,
+  "merged_from": [
+    "runs/clean-openai_cua-osworld-small",
+    "runs/osw-openai_cua-t1",
+    "runs/osw-openai_cua-t2"
+  ]
 }

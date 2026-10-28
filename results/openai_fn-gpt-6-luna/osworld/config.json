@@ -1,0 +1,21 @@
+{
+  "tasks_file": "test_small.json",
+  "domain": null,
+  "ids": null,
+  "limit": null,
+  "harness": "openai_fn",
+  "max_steps": 50,
+  "budget": 900,
+  "include_gdrive": false,
+  "out": null,
+  "no_record": false,
+  "suite": "osworld",
+  "harness_version": "bench/cua/osworld_agent.py (Responses API, actions as a function tool, gpt-6-luna, effort medium)",
+  "n_tasks": 36,
+  "trials": 3,
+  "merged_from": [
+    "runs/osw-openai_fn-t0",
+    "runs/osw-openai_fn-t1",
+    "runs/osw-openai_fn-t2"
+  ]
+}

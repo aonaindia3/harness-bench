@@ -2,11 +2,16 @@
   "harness": "hermes_playwright",
   "suite": "webgames-quick",
   "tasks": null,
-  "trials": 1,
+  "trials": 3,
   "budget": 240,
   "model": null,
-  "out": "runs/clean-hermes_playwright-webgames-quick",
+  "out": null,
   "harness_version": "Hermes Agent v0.22.2 (2026.9.24) \u00b7 stable \u00b7 local d923a5eb487a",
   "n_tasks": 25,
-  "started": "2026-10-20T16:56:39.990072"
+  "started": "2026-10-20T16:56:39.990072",
+  "merged_from": [
+    "runs/clean-hermes_playwright-webgames-quick",
+    "runs/web-hermes_playwright-webgames-quick-t1",
+    "runs/web-hermes_playwright-webgames-quick-t2"
+  ]
 }

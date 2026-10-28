@@ -6,10 +6,16 @@
   "max_steps": 50,
   "budget": 900,
   "include_gdrive": false,
-  "out": "runs/clean-hermes-osworld-small",
+  "out": null,
   "no_record": false,
   "suite": "osworld",
   "harness": "hermes",
   "harness_version": "Hermes Agent v0.22.2 (2026.9.24) \u00b7 stable \u00b7 local d923a5eb487a",
-  "n_tasks": 36
+  "n_tasks": 36,
+  "trials": 3,
+  "merged_from": [
+    "runs/clean-hermes-osworld-small",
+    "runs/osw-hermes-t1",
+    "runs/osw-hermes-t2"
+  ]
 }
