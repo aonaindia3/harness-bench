@@ -1,0 +1,17 @@
+{
+  "harness": "opencode",
+  "suite": "webgames-all",
+  "tasks": null,
+  "trials": 3,
+  "budget": 240,
+  "model": "openai/gpt-6-luna",
+  "out": null,
+  "harness_version": "1.19.3",
+  "n_tasks": 150,
+  "started": "2026-10-27T00:11:17.143861",
+  "merged_from": [
+    "runs/opencode-webgames-all-run-6627750",
+    "runs/opencode-webgames-all-run-6627751",
+    "runs/20261027-001116-opencode-webgames-all"
+  ]
+}
