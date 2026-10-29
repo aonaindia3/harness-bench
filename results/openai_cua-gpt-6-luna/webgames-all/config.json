@@ -1,0 +1,13 @@
+{
+  "harness": "openai_cua",
+  "suite": "webgames-all",
+  "tasks": "towers-of-hanoi-hard,color-harmony,color-harmony-easy,color-harmony-hard,herding,herding-easy,herding-hard,file-upload,file-upload-hard,canvas-catch,canvas-catch-easy,canvas-catch-hard,brick-buster,brick-buster-easy,brick-buster-hard,text-mirror,text-mirror-easy,text-mirror-hard,frog-crossing,frog-crossing-easy,frog-crossing-hard,button-hold,button-hold-easy,button-hold-hard,key-combo,key-combo-easy,key-combo-hard,scroll-vertical,scroll-vertical-easy,scroll-vertical-hard,scroll-horizontal,scroll-horizontal-easy,scroll-horizontal-hard,webgl-text,webgl-text-easy,webgl-text-hard,file-credentials,file-credentials-easy,file-credentials-hard,webs-assemble,menu-navigator,menu-navigator-easy,menu-navigator-hard,popup-chaos,popup-chaos-easy,popup-chaos-hard,chart-read,chart-read-easy,chart-read-hard,chart-transcribe,chart-transcribe-easy,chart-transcribe-hard,combination-lock,combination-lock-easy,combination-lock-hard,pixel-copy,pixel-copy-easy,pixel-copy-hard,illegal-material,illegal-material-easy,illegal-material-hard,prompt-defender,prompt-defender-easy,prompt-defender-hard,shopping-challenge,shopping-challenge-easy,shopping-challenge-hard,maze/*,maze-easy/*,maze-hard/*,context-breaker,context-breaker-easy,context-breaker-hard,scroll-diagonal,scroll-diagonal-easy,scroll-diagonal-hard,block-stack,block-stack-easy,block-stack-hard,iframe-nest,iframe-nest-easy,iframe-nest-hard,tab-sync,otp-entry,otp-entry-easy,otp-entry-hard,print-reveal,robo-check,robo-check-easy,robo-check-hard,right-click,right-click-easy,right-click-hard,calendar-comprehension,calendar-comprehension-easy,calendar-comprehension-hard,map-panner,map-panner-easy,map-panner-hard,ladybird,ladybird-easy,ladybird-hard,shop-admin,shop-admin-easy,shop-admin-hard,recipe-calculator,recipe-calculator-easy,recipe-calculator-hard,calendar2,calendar2-easy,calendar2-hard,stock-market,stock-market-easy,stock-market-hard,verify-challenge,verify-challenge-easy,verify-challenge-hard,resume-challenge,click-pixel,click-pixel-easy,click-pixel-hard",
+  "trials": 1,
+  "first_trial": 0,
+  "budget": 240,
+  "model": null,
+  "out": "runs/web-openai_cua-webgames-all-t0",
+  "harness_version": "bench/cua/agent.mjs (Responses API computer tool, gpt-6-luna, effort medium)",
+  "n_tasks": 121,
+  "started": "2026-10-28T16:46:27.812610"
+}
